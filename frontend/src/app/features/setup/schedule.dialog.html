@@ -1,0 +1,101 @@
+<h2 mat-dialog-title>{{ (schedule ? 'setup.edit' : 'setup.create') | t: { what: ('setup.one.schedules' | t) } }}</h2>
+<mat-dialog-content>
+  <div class="form-grid">
+    <app-lookup-field [formControl]="routeId" resource="routes" [label]="'setup.f.route' | t" />
+    <app-lookup-field [formControl]="trainId" resource="trains" [label]="'setup.f.train' | t" />
+    <mat-form-field>
+      <mat-label>{{ 'setup.f.validFrom' | t }}</mat-label>
+      <input matInput type="date" [ngModel]="validFrom()" (ngModelChange)="validFrom.set($event)" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'setup.f.validUntil' | t }}</mat-label>
+      <input matInput type="date" [ngModel]="validUntil()" (ngModelChange)="validUntil.set($event)" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'setup.f.timeZone' | t }}</mat-label>
+      <input matInput [ngModel]="timeZone()" (ngModelChange)="timeZone.set($event)" />
+      <mat-hint>{{ 'setup.timeZoneHint' | t }}</mat-hint>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'setup.f.dst' | t }}</mat-label>
+      <mat-select [ngModel]="dst()" (ngModelChange)="dst.set($event)">
+        <mat-option value="REJECT">{{ 'setup.dstReject' | t }}</mat-option>
+        <mat-option value="EARLIER">{{ 'setup.dstEarlier' | t }}</mat-option>
+        <mat-option value="LATER">{{ 'setup.dstLater' | t }}</mat-option>
+      </mat-select>
+      <mat-hint>{{ 'setup.dstHint' | t }}</mat-hint>
+    </mat-form-field>
+  </div>
+
+  <h3 class="sub">{{ 'setup.f.weekdays' | t }}</h3>
+  <div class="days">
+    @for (d of days; track d) {
+      <button type="button" class="day" [class.on]="weekdays().includes(d)" (click)="toggleDay(d)" [attr.aria-pressed]="weekdays().includes(d)">
+        {{ 'weekdays.' + d | t }}
+      </button>
+    }
+  </div>
+
+  <h3 class="sub">{{ 'setup.f.times' | t }}</h3>
+  <p class="muted small">{{ 'setup.timesHint' | t }}</p>
+  @if (!rows().length) {
+    <p class="muted small empty-note">{{ 'setup.pickRouteFirst' | t }}</p>
+  } @else {
+    <div class="times">
+      <div class="th muted small">
+        <span>{{ 'setup.f.station' | t }}</span><span>{{ 'trip.arr' | t }}</span><span>{{ 'trip.dep' | t }}</span>
+      </div>
+      @for (r of rows(); track r.routeStopId; let i = $index; let first = $first; let last = $last) {
+        <div class="tr">
+          <span class="st">{{ r.name }}</span>
+          <span class="cell">
+            @if (!first) {
+              <input type="time" class="time" [value]="r.arr" (change)="setRow(i, { arr: $any($event.target).value })" [attr.aria-label]="('trip.arr' | t) + ' ' + r.name" />
+              <mat-checkbox [checked]="r.arrNext" (change)="setRow(i, { arrNext: $event.checked })" [matTooltip]="'setup.nextDay' | t">+1</mat-checkbox>
+            }
+          </span>
+          <span class="cell">
+            @if (!last) {
+              <input type="time" class="time" [value]="r.dep" (change)="setRow(i, { dep: $any($event.target).value })" [attr.aria-label]="('trip.dep' | t) + ' ' + r.name" />
+              <mat-checkbox [checked]="r.depNext" (change)="setRow(i, { depNext: $event.checked })" [matTooltip]="'setup.nextDay' | t">+1</mat-checkbox>
+            }
+          </span>
+        </div>
+      }
+    </div>
+  }
+
+  <h3 class="sub">{{ 'setup.f.exceptions' | t }}</h3>
+  <p class="muted small">{{ 'setup.exceptionsHint' | t }}</p>
+  <div class="row exc-add">
+    <input type="date" class="time" [value]="newException()" (change)="newException.set($any($event.target).value)" />
+    <button mat-stroked-button type="button" (click)="addException()"><mat-icon>add</mat-icon>{{ 'setup.addDate' | t }}</button>
+  </div>
+  <ul class="list-reset excs">
+    @for (e of exceptions(); track e.date) {
+      <li>
+        <span class="tabular">{{ e.date }}</span>
+        <button type="button" class="pill" [class.bad]="!e.runs" [class.ok]="e.runs" (click)="toggleException(e.date)">
+          {{ (e.runs ? 'setup.runs' : 'setup.noRun') | t }}
+        </button>
+        <button mat-icon-button (click)="removeException(e.date)" [attr.aria-label]="'common.delete' | t"><mat-icon>close</mat-icon></button>
+      </li>
+    }
+  </ul>
+
+  @if (error()) {
+    <div class="error" role="alert">
+      <mat-icon>error</mat-icon>
+      <div>
+        <p>{{ error() }}</p>
+        @for (fe of fieldErrors(); track fe.field) {
+          <p class="small">{{ fe.field }}: {{ fe.message }}</p>
+        }
+      </div>
+    </div>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>{{ 'common.cancel' | t }}</button>
+  <button mat-flat-button (click)="save()" [disabled]="busy()">{{ 'common.save' | t }}</button>
+</mat-dialog-actions>

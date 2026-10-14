@@ -1,0 +1,154 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.opts {
+  gap: 10px;
+  align-items: center;
+}
+
+.when {
+  width: 170px;
+}
+
+.board {
+  padding: 8px 8px 12px;
+}
+
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 12px 8px;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-ok);
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: blink 2s infinite;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+$cols: 8.5rem 6.5rem minmax(0, 1fr) 5.5rem 8rem;
+
+.cols {
+  display: grid;
+  grid-template-columns: $cols;
+  gap: 12px;
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: $cols;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--r-md);
+  color: inherit;
+  text-decoration: none;
+
+  &.cancelled .c-dest strong {
+    text-decoration: line-through;
+    color: var(--c-muted);
+  }
+}
+
+li + li .board-row {
+  border-top: 1px solid var(--c-border);
+  border-radius: 0;
+}
+
+.c-time {
+  display: flex;
+  flex-direction: column;
+  font-size: 1.05rem;
+}
+
+.day {
+  font-size: 0.75rem;
+}
+
+.c-dest {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reason {
+  color: var(--c-bad);
+}
+
+.c-status {
+  justify-self: end;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .cols {
+    display: none;
+  }
+  .board-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'time dest status'
+      'train dest plat';
+    row-gap: 6px;
+  }
+  .c-time {
+    grid-area: time;
+  }
+  .c-train {
+    grid-area: train;
+  }
+  .c-dest {
+    grid-area: dest;
+  }
+  .c-plat {
+    grid-area: plat;
+    justify-self: end;
+  }
+  .c-status {
+    grid-area: status;
+  }
+  .when {
+    width: calc(50% - 5px);
+  }
+}

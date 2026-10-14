@@ -1,0 +1,84 @@
+<div class="shell">
+  <!-- Seitenleiste (Desktop) -->
+  <aside class="side">
+    <a class="brand" routerLink="/home">
+      <app-logo />
+      <span class="brand-name">Gleis</span>
+      @if (demo) {
+        <span class="pill neutral demo" [matTooltip]="'shell.demoHint' | t">{{ 'shell.demo' | t }}</span>
+      }
+    </a>
+
+    <nav class="side-nav" [attr.aria-label]="'shell.navigation' | t">
+      @for (item of mainItems(); track item.path) {
+        <a class="side-link" [routerLink]="item.path" routerLinkActive="active">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span>{{ item.label | t }}</span>
+        </a>
+      }
+      @if (staffItems().length) {
+        <div class="side-group">{{ 'shell.staff' | t }}</div>
+        @for (item of staffItems(); track item.path) {
+          <a class="side-link" [routerLink]="item.path" routerLinkActive="active">
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label | t }}</span>
+          </a>
+        }
+      }
+    </nav>
+
+    <div class="side-foot">
+      <a class="me" routerLink="/account">
+        <span class="avatar">{{ auth.user()?.displayName?.charAt(0) }}</span>
+        <span class="me-text">
+          <span class="strong">{{ auth.user()?.displayName }}</span>
+          <span class="muted small">{{ 'roles.' + auth.role() | t }}</span>
+        </span>
+      </a>
+      <button
+        type="button"
+        class="lang"
+        (click)="toggleLanguage()"
+        [attr.aria-label]="'account.language' | t"
+      >
+        <span [class.on]="i18n.lang() === 'de'">DE</span>
+        <span [class.on]="i18n.lang() === 'en'">EN</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Kopfzeile (Handy) -->
+  <header class="top">
+    <a routerLink="/home" class="top-brand"><app-logo [size]="30" /></a>
+    <h1 class="top-title">{{ current().label | t }}</h1>
+    @for (item of staffItems(); track item.path) {
+      <a
+        class="top-btn"
+        [routerLink]="item.path"
+        routerLinkActive="active"
+        [attr.aria-label]="item.label | t"
+        [matTooltip]="item.label | t"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+      </a>
+    }
+    <button type="button" class="top-btn lang-btn" (click)="toggleLanguage()">
+      {{ i18n.lang() === 'de' ? 'EN' : 'DE' }}
+    </button>
+  </header>
+
+  <main class="main" [class.full]="fullBleed()">
+    <router-outlet />
+    <app-version-footer class="version" />
+  </main>
+
+  <!-- Untere Leiste (Handy) -->
+  <nav class="bottom" [attr.aria-label]="'shell.navigation' | t">
+    @for (item of mobileItems(); track item.path) {
+      <a class="bottom-link" [routerLink]="item.path" routerLinkActive="active">
+        <span class="bottom-icon"><mat-icon>{{ item.icon }}</mat-icon></span>
+        <span class="bottom-label">{{ item.label | t }}</span>
+      </a>
+    }
+  </nav>
+</div>

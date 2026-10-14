@@ -1,0 +1,116 @@
+<div class="page">
+  <header class="page-head enter">
+    <div>
+      <h1>{{ 'account.title' | t }}</h1>
+      <p class="sub">{{ 'account.subtitle' | t }}</p>
+    </div>
+  </header>
+
+  <!-- Profil -->
+  <section class="card profile enter">
+    <span class="avatar">{{ auth.user()?.displayName?.charAt(0) }}</span>
+    <div class="who">
+      @if (editing()) {
+        <form class="name-form" (ngSubmit)="saveName()">
+          <mat-form-field>
+            <mat-label>{{ 'login.name' | t }}</mat-label>
+            <input matInput [formControl]="name" autocomplete="name" />
+            @if (name.invalid) {
+              <mat-error>{{ 'login.nameRequired' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <div class="row">
+            <button mat-flat-button type="submit" [disabled]="saving()">{{ 'common.save' | t }}</button>
+            <button mat-button type="button" (click)="editing.set(false)">{{ 'common.cancel' | t }}</button>
+          </div>
+        </form>
+      } @else {
+        <div class="row">
+          <h2>{{ auth.user()?.displayName }}</h2>
+          <button mat-icon-button (click)="edit()" [attr.aria-label]="'account.editName' | t">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </div>
+        <p class="muted">{{ auth.user()?.email }}</p>
+        <span class="pill">{{ 'roles.' + auth.role() | t }}</span>
+      }
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <!-- Darstellung -->
+    <section class="card enter">
+      <div class="card-title">
+        <h2><mat-icon>palette</mat-icon>{{ 'account.display' | t }}</h2>
+      </div>
+
+      <div class="setting">
+        <span class="label">{{ 'account.language' | t }}</span>
+        <mat-button-toggle-group
+          class="segmented"
+          [value]="i18n.lang()"
+          (change)="prefs.setLanguage($event.value)"
+          [hideSingleSelectionIndicator]="true"
+        >
+          <mat-button-toggle value="de">Deutsch</mat-button-toggle>
+          <mat-button-toggle value="en">English</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      <div class="setting">
+        <span class="label">{{ 'account.theme' | t }}</span>
+        <mat-button-toggle-group
+          class="segmented"
+          [value]="prefs.theme()"
+          (change)="prefs.setTheme($event.value)"
+          [hideSingleSelectionIndicator]="true"
+        >
+          <mat-button-toggle value="light"><mat-icon>light_mode</mat-icon> {{ 'account.light' | t }}</mat-button-toggle>
+          <mat-button-toggle value="dark"><mat-icon>dark_mode</mat-icon> {{ 'account.dark' | t }}</mat-button-toggle>
+          <mat-button-toggle value="system"><mat-icon>contrast</mat-icon> {{ 'account.system' | t }}</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      <div class="setting">
+        <span class="label">{{ 'account.fontSize' | t }}</span>
+        <mat-button-toggle-group
+          class="segmented sizes"
+          [value]="prefs.fontScale()"
+          (change)="prefs.setFontScale($event.value)"
+          [hideSingleSelectionIndicator]="true"
+        >
+          <mat-button-toggle value="sm" [attr.aria-label]="'account.small' | t"><span class="a sm">A</span></mat-button-toggle>
+          <mat-button-toggle value="md" [attr.aria-label]="'account.normal' | t"><span class="a md">A</span></mat-button-toggle>
+          <mat-button-toggle value="lg" [attr.aria-label]="'account.large' | t"><span class="a lg">A</span></mat-button-toggle>
+        </mat-button-toggle-group>
+        <p class="muted small">{{ 'account.fontHint' | t }}</p>
+      </div>
+    </section>
+
+    <!-- Passwort -->
+    <section class="card enter">
+      <div class="card-title">
+        <h2><mat-icon>lock</mat-icon>{{ 'password.title' | t }}</h2>
+      </div>
+      <app-password-form (changed)="passwordChanged()" />
+    </section>
+  </div>
+
+  <section class="card enter session">
+    <div>
+      <h2>{{ 'account.session' | t }}</h2>
+      <p class="muted">{{ 'account.sessionText' | t }}</p>
+    </div>
+    <button mat-stroked-button (click)="logout()"><mat-icon>logout</mat-icon>{{ 'account.logout' | t }}</button>
+  </section>
+
+  @if (demo) {
+    <section class="card enter session demo">
+      <div>
+        <h2>{{ 'account.demoTitle' | t }}</h2>
+        <p class="muted">{{ 'account.demoText' | t }}</p>
+      </div>
+      <button mat-stroked-button (click)="resetDemo()"><mat-icon>restart_alt</mat-icon>{{ 'account.reset' | t }}</button>
+    </section>
+  }
+</div>

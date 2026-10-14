@@ -1,0 +1,209 @@
+<div class="page">
+  <header class="page-head enter">
+    <div>
+      <h1>{{ greeting() }}</h1>
+      <p class="sub">{{ today() }}</p>
+    </div>
+  </header>
+
+  @if (failed()) {
+    <div class="card empty">
+      <mat-icon>cloud_off</mat-icon>
+      <strong>{{ 'home.loadFailed' | t }}</strong>
+      <button mat-stroked-button (click)="load()">{{ 'common.retry' | t }}</button>
+    </div>
+  } @else if (!data()) {
+    <div class="card"><div class="skeleton" style="height: 168px"></div></div>
+    <div class="grid-2">
+      <div class="card"><div class="skeleton" style="height: 120px"></div></div>
+      <div class="card"><div class="skeleton" style="height: 120px"></div></div>
+    </div>
+  } @else {
+    <!-- Nächste Fahrt -->
+    @if (next(); as n) {
+      <section class="card next enter" [class.cancelled]="n.status === 'CANCELLED'">
+        <div class="next-head">
+          <span class="eyebrow">{{ 'home.nextTrip' | t }}</span>
+          @if (minutesToGo() !== null && minutesToGo()! > 0 && minutesToGo()! < 600) {
+            <span class="countdown">{{ 'home.departsIn' | t: { time: f.duration(minutesToGo()! * 60) } }}</span>
+          } @else if (n.status === 'RUNNING') {
+            <span class="countdown live"><span class="dot"></span>{{ 'home.onTheWay' | t }}</span>
+          }
+        </div>
+
+        <div class="row line">
+          <app-line-badge [label]="n.trainNumber" [color]="n.lineColor" />
+          <span class="muted">{{ n.lineName }} · {{ 'common.towards' | t: { place: n.destination.name } }}</span>
+          <app-delay
+            [seconds]="n.boardingStop?.departureDelaySeconds ?? n.delaySeconds"
+            [cancelled]="n.status === 'CANCELLED'"
+          />
+        </div>
+
+        <div class="journey">
+          <div class="stop">
+            <app-time
+              class="big"
+              [scheduled]="n.boardingStop?.scheduledDeparture ?? n.scheduledDeparture"
+              [expected]="n.boardingStop?.expectedDeparture ?? n.expectedDeparture"
+              [cancelled]="n.status === 'CANCELLED'"
+            />
+            <div class="where">
+              <strong>{{ n.boardingStop?.station?.name ?? n.origin.name }}</strong>
+              <span class="muted small">{{ n.boardingStop?.scheduledDeparture ?? n.scheduledDeparture | day }}</span>
+            </div>
+            <app-platform
+              [scheduled]="n.boardingStop?.scheduledPlatform ?? null"
+              [expected]="n.boardingStop?.expectedPlatform ?? null"
+            />
+          </div>
+          <div class="track" aria-hidden="true"><span></span></div>
+          <div class="stop">
+            <app-time
+              class="big"
+              [scheduled]="n.alightingStop?.scheduledArrival ?? n.scheduledArrival"
+              [expected]="n.alightingStop?.expectedArrival ?? n.expectedArrival"
+              [cancelled]="n.status === 'CANCELLED'"
+            />
+            <div class="where">
+              <strong>{{ n.alightingStop?.station?.name ?? n.destination.name }}</strong>
+            </div>
+            <app-platform
+              [scheduled]="n.alightingStop?.scheduledPlatform ?? null"
+              [expected]="n.alightingStop?.expectedPlatform ?? null"
+            />
+          </div>
+        </div>
+
+        <div class="row actions">
+          <a mat-flat-button [routerLink]="['/rail/trips', n.id]">
+            <mat-icon>route</mat-icon>{{ 'home.showTrip' | t }}
+          </a>
+          <a mat-stroked-button routerLink="/map" [queryParams]="{ trip: n.id }">
+            <mat-icon>map</mat-icon>{{ 'home.onMap' | t }}
+          </a>
+          <a mat-button routerLink="/tickets" [queryParams]="{ open: n.ticketId }">
+            <mat-icon>qr_code_2</mat-icon>{{ 'home.showTicket' | t }}
+          </a>
+        </div>
+      </section>
+    } @else {
+      <section class="card next-empty enter">
+        <mat-icon>train</mat-icon>
+        <div>
+          <h2>{{ 'home.noTripTitle' | t }}</h2>
+          <p class="muted">{{ 'home.noTripText' | t }}</p>
+        </div>
+        <div class="row">
+          <a mat-flat-button routerLink="/rail" [queryParams]="{ tab: 'connection' }">{{ 'home.findConnection' | t }}</a>
+          <a mat-stroked-button routerLink="/tickets" [queryParams]="{ add: 1 }">{{ 'tickets.add' | t }}</a>
+        </div>
+      </section>
+    }
+
+    <!-- Hinweise -->
+    @if (data()!.alerts.length) {
+      <section class="card enter">
+        <div class="card-title">
+          <h2><mat-icon>notifications</mat-icon>{{ 'home.alerts' | t }}</h2>
+        </div>
+        <ul class="list-reset alerts enter-list">
+          @for (a of data()!.alerts; track a.id) {
+            <li>
+              <a class="alert clickable" [class.warning]="a.severity === 'WARNING'" [routerLink]="['/rail/trips', a.tripId]">
+                <mat-icon>{{ alertIcon(a) }}</mat-icon>
+                <span class="alert-text">
+                  <strong>{{ 'alerts.' + a.code | t: { n: f.delayMinutes(a.delaySeconds) } }}</strong>
+                  @if (ticketFor(a); as t) {
+                    <span class="muted small">{{ t.origin?.name }} → {{ t.destination?.name }}</span>
+                  }
+                  @if (a.reasonCode) {
+                    <span class="muted small">{{ 'reasons.' + a.reasonCode | t }}{{ a.reasonText ? ' · ' + a.reasonText : '' }}</span>
+                  }
+                </span>
+                <mat-icon class="chev">chevron_right</mat-icon>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <div class="grid-2">
+      <!-- Fahrkarten -->
+      <section class="card enter">
+        <div class="card-title">
+          <h2><mat-icon>confirmation_number</mat-icon>{{ 'home.tickets' | t }}</h2>
+          <a mat-button routerLink="/tickets">{{ 'common.showAll' | t }}</a>
+        </div>
+        @if (data()!.activeTickets.length) {
+          <ul class="list-reset tickets enter-list">
+            @for (t of data()!.activeTickets.slice(0, 4); track t.id) {
+              <li>
+                <a class="mini-ticket clickable" routerLink="/tickets" [queryParams]="{ open: t.id }">
+                  <span class="mt-icon"><mat-icon>{{ t.tripId ? 'train' : 'card_membership' }}</mat-icon></span>
+                  <span class="mt-text">
+                    <strong>{{ t.origin && t.destination ? t.origin.name + ' → ' + t.destination.name : t.productName }}</strong>
+                    <span class="muted small">
+                      @if (t.tripId) {
+                        {{ t.validFrom | day }} · {{ t.productName }}
+                      } @else {
+                        {{ 'tickets.validUntil' | t: { date: f.date(t.validUntil) } }}
+                      }
+                    </span>
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        } @else {
+          <div class="empty">
+            <mat-icon>confirmation_number</mat-icon>
+            <span>{{ 'home.noTickets' | t }}</span>
+          </div>
+        }
+      </section>
+
+      <!-- Zuletzt angesehen -->
+      <section class="card enter">
+        <div class="card-title">
+          <h2><mat-icon>history</mat-icon>{{ 'home.recent' | t }}</h2>
+        </div>
+        @if (data()!.recentTrips.length) {
+          <ul class="list-reset recent enter-list">
+            @for (t of data()!.recentTrips.slice(0, 5); track t.id) {
+              <li>
+                <a class="recent-row clickable" [routerLink]="['/rail/trips', t.id]">
+                  <app-line-badge [label]="t.trainNumber" [color]="t.lineColor" />
+                  <span class="recent-text">
+                    <strong>{{ t.origin.name }} → {{ t.destination.name }}</strong>
+                    <span class="muted small">{{ t.scheduledDeparture | day }}, {{ t.scheduledDeparture | hm }}</span>
+                  </span>
+                  <app-delay [seconds]="t.delaySeconds" [cancelled]="t.status === 'CANCELLED'" [hideOnTime]="true" />
+                </a>
+              </li>
+            }
+          </ul>
+        } @else {
+          <div class="empty">
+            <mat-icon>history</mat-icon>
+            <span>{{ 'home.noRecent' | t }}</span>
+          </div>
+        }
+      </section>
+    </div>
+
+    <!-- Schnellzugriff -->
+    <nav class="quick enter">
+      <a class="quick-item clickable" routerLink="/rail" [queryParams]="{ tab: 'board' }">
+        <mat-icon>departure_board</mat-icon><span>{{ 'home.quickBoard' | t }}</span>
+      </a>
+      <a class="quick-item clickable" routerLink="/rail" [queryParams]="{ tab: 'connection' }">
+        <mat-icon>alt_route</mat-icon><span>{{ 'home.quickConnection' | t }}</span>
+      </a>
+      <a class="quick-item clickable" routerLink="/map">
+        <mat-icon>map</mat-icon><span>{{ 'home.quickMap' | t }}</span>
+      </a>
+    </nav>
+  }
+</div>

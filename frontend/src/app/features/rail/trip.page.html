@@ -1,0 +1,108 @@
+<div class="page">
+  <div>
+    <button mat-button class="back" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>{{ 'common.back' | t }}
+    </button>
+  </div>
+
+  @if (missing()) {
+    <div class="card empty">
+      <mat-icon>search_off</mat-icon>
+      <strong>{{ 'trip.notFound' | t }}</strong>
+      <a mat-stroked-button routerLink="/rail">{{ 'trip.toRail' | t }}</a>
+    </div>
+  } @else if (!trip()) {
+    <div class="card"><div class="skeleton" style="height: 110px"></div></div>
+    <div class="card"><div class="skeleton" style="height: 360px"></div></div>
+  } @else {
+    @let t = trip()!;
+    <header class="card head enter">
+      <div class="row">
+        <app-line-badge [label]="t.trainNumber" [color]="t.lineColor" />
+        <span class="muted">{{ t.lineName }}{{ t.companyName !== t.lineName ? ' · ' + t.companyName : '' }}</span>
+        <span class="spacer"></span>
+        @switch (t.status) {
+          @case ('RUNNING') { <span class="pill ok"><span class="dot"></span>{{ 'trip.running' | t }}</span> }
+          @case ('COMPLETED') { <span class="pill neutral">{{ 'trip.completed' | t }}</span> }
+          @case ('CANCELLED') { <span class="pill bad">{{ 'status.cancelled' | t }}</span> }
+          @default { <span class="pill">{{ 'trip.scheduled' | t }}</span> }
+        }
+      </div>
+      <h1>{{ t.origin.name }} → {{ t.destination.name }}</h1>
+      <p class="muted">
+        {{ t.scheduledDeparture | day }} · {{ t.scheduledDeparture | hm }} – {{ t.scheduledArrival | hm }}
+        @if (t.status !== 'CANCELLED' && t.delaySeconds !== 0) {
+          · <app-delay [seconds]="t.delaySeconds" />
+        }
+      </p>
+      @if (reason()) {
+        <div class="reason">
+          <mat-icon>info</mat-icon>
+          <span>
+            <strong>{{ 'reasons.' + reason() | t }}</strong>
+            @if (reasonText()) {
+              – {{ reasonText() }}
+            }
+          </span>
+        </div>
+      }
+      <div class="row">
+        <a mat-flat-button routerLink="/map" [queryParams]="{ trip: t.id }" [disabled]="t.status !== 'RUNNING'">
+          <mat-icon>map</mat-icon>{{ 'trip.showOnMap' | t }}
+        </a>
+        @if (t.status !== 'RUNNING') {
+          <span class="muted small">{{ 'trip.mapOnlyRunning' | t }}</span>
+        }
+      </div>
+    </header>
+
+    <section class="card enter">
+      <h2 class="stops-title">{{ 'trip.stops' | t }} ({{ t.stops.length }})</h2>
+      <ol class="list-reset timeline">
+        @for (s of t.stops; track s.id; let i = $index; let first = $first; let last = $last) {
+          <li
+            class="stop"
+            [class.done]="i <= reached()"
+            [class.current]="i === reached() && !between()"
+            [class.cancelled]="s.cancelled"
+            [class.first]="first"
+            [class.last]="last"
+          >
+            <div class="rail" [style.--line]="t.lineColor ?? 'var(--c-primary)'">
+              <span class="node"></span>
+              @if (i === reached() && between()) {
+                <span class="train" [attr.aria-label]="'trip.trainHere' | t"><mat-icon class="icon-fill">train</mat-icon></span>
+              }
+            </div>
+            <div class="times">
+              @if (s.scheduledArrival && !first) {
+                <div class="t">
+                  <span class="lbl">{{ 'trip.arr' | t }}</span>
+                  <app-time [scheduled]="s.scheduledArrival" [expected]="s.expectedArrival" [cancelled]="s.cancelled" />
+                </div>
+              }
+              @if (s.scheduledDeparture && !last) {
+                <div class="t">
+                  <span class="lbl">{{ 'trip.dep' | t }}</span>
+                  <app-time [scheduled]="s.scheduledDeparture" [expected]="s.expectedDeparture" [cancelled]="s.cancelled" />
+                </div>
+              }
+            </div>
+            <div class="info">
+              <strong class="name">{{ s.station.name }}</strong>
+              @if (s.cancelled) {
+                <span class="pill bad">{{ 'trip.stopCancelled' | t }}</span>
+              }
+              @if (s.reasonText && !s.cancelled) {
+                <span class="muted small">{{ s.reasonText }}</span>
+              }
+            </div>
+            <div class="plat">
+              <app-platform [scheduled]="s.scheduledPlatform" [expected]="s.expectedPlatform" />
+            </div>
+          </li>
+        }
+      </ol>
+    </section>
+  }
+</div>

@@ -1,0 +1,81 @@
+<div class="page">
+  <header class="page-head enter">
+    <div>
+      <h1>{{ 'tickets.title' | t }}</h1>
+      <p class="sub">{{ 'tickets.subtitle' | t }}</p>
+    </div>
+    <button mat-flat-button (click)="addTicket()">
+      <mat-icon>add</mat-icon>{{ 'tickets.add' | t }}
+    </button>
+  </header>
+
+  <mat-button-toggle-group
+    class="segmented"
+    [value]="filter()"
+    (change)="filter.set($event.value)"
+    [hideSingleSelectionIndicator]="true"
+  >
+    <mat-button-toggle value="valid">{{ 'tickets.valid' | t }} ({{ counts().valid }})</mat-button-toggle>
+    <mat-button-toggle value="old">{{ 'tickets.old' | t }} ({{ counts().old }})</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  @if (tickets() === null) {
+    <div class="list">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="card"><div class="skeleton" style="height: 96px"></div></div>
+      }
+    </div>
+  } @else if (!shown().length) {
+    <div class="card empty enter">
+      <mat-icon>confirmation_number</mat-icon>
+      <strong>{{ (filter() === 'valid' ? 'tickets.emptyValid' : 'tickets.emptyOld') | t }}</strong>
+      @if (filter() === 'valid') {
+        <span>{{ 'tickets.emptyHint' | t }}</span>
+        <button mat-stroked-button (click)="addTicket()">{{ 'tickets.add' | t }}</button>
+      }
+    </div>
+  } @else {
+    <ul class="list-reset list enter-list">
+      @for (t of shown(); track t.id) {
+        <li>
+          <button type="button" class="ticket" [class.old]="t.status !== 'ACTIVE'" (click)="show(t)">
+            <span class="stub">
+              <mat-icon>{{ t.tripId ? 'train' : 'card_membership' }}</mat-icon>
+              @if (t.travelClass) {
+                <span class="cls">{{ 'tickets.classShort' | t: { n: t.travelClass } }}</span>
+              }
+            </span>
+            <span class="body">
+              <span class="top">
+                <span class="product">{{ t.productName ?? ('tickets.ticket' | t) }}</span>
+                @if (t.status === 'CANCELLED') {
+                  <span class="pill bad">{{ 'tickets.cancelled' | t }}</span>
+                } @else if (t.status === 'EXPIRED') {
+                  <span class="pill neutral">{{ 'tickets.expired' | t }}</span>
+                } @else if (isNow(t)) {
+                  <span class="pill ok">{{ 'tickets.validNow' | t }}</span>
+                }
+                @if (!t.verified) {
+                  <span class="pill neutral">{{ 'tickets.selfSaved' | t }}</span>
+                }
+              </span>
+              @if (t.origin && t.destination) {
+                <span class="route">{{ t.origin.name }} <mat-icon>arrow_forward</mat-icon> {{ t.destination.name }}</span>
+              } @else {
+                <span class="route">{{ 'tickets.network' | t }}</span>
+              }
+              <span class="meta muted small">
+                @if (t.tripId) {
+                  {{ t.validFrom | day }} · {{ t.companyName }}
+                } @else {
+                  {{ 'tickets.validRange' | t: { from: f.date(t.validFrom), to: f.date(t.validUntil) } }}
+                }
+              </span>
+            </span>
+            <mat-icon class="qr">{{ t.qrPayload ? 'qr_code_2' : 'chevron_right' }}</mat-icon>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

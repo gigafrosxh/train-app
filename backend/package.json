@@ -1,0 +1,49 @@
+{
+  "name": "train-app-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/main.js",
+    "start:dev": "tsx watch src/main.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "test": "tsx --test test/*.test.ts",
+    "test:integration": "tsx scripts/test-integration.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
+    "device:create": "tsx scripts/create-device.ts"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/websockets": "^11.0.0",
+    "argon2": "^0.44.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.0",
+    "typeorm": "^0.3.28",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/supertest": "^6.0.0",
+    "prettier": "^3.9.10",
+    "socket.io-client": "^4.8.0",
+    "supertest": "^7.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

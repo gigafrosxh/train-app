@@ -1,0 +1,118 @@
+<div class="head">
+  <h2>{{ 'tickets.addTitle' | t }}</h2>
+  <button mat-icon-button mat-dialog-close [attr.aria-label]="'common.close' | t"><mat-icon>close</mat-icon></button>
+</div>
+
+<mat-dialog-content>
+  <p class="muted intro">{{ 'tickets.addIntro' | t }}</p>
+
+  <mat-button-toggle-group
+    class="segmented kind"
+    [value]="kind()"
+    (change)="kind.set($event.value); error.set(null)"
+    [hideSingleSelectionIndicator]="true"
+  >
+    <mat-button-toggle value="trip"><mat-icon>train</mat-icon> {{ 'tickets.kindTrip' | t }}</mat-button-toggle>
+    <mat-button-toggle value="pass"><mat-icon>card_membership</mat-icon> {{ 'tickets.kindPass' | t }}</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  <div class="form-grid">
+    <app-station-picker class="full-mobile" [label]="'rail.from' | t" icon="trip_origin" [(station)]="from" />
+    <app-station-picker class="full-mobile" [label]="'rail.to' | t" icon="place" [(station)]="to" />
+  </div>
+
+  @if (kind() === 'trip') {
+    <div class="form-grid">
+      <mat-form-field>
+        <mat-label>{{ 'rail.date' | t }}</mat-label>
+        <input matInput type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>{{ 'rail.time' | t }}</mat-label>
+        <input matInput type="time" [value]="time()" (change)="time.set($any($event.target).value)" />
+      </mat-form-field>
+    </div>
+    <button mat-stroked-button type="button" (click)="search()" [disabled]="!from() || !to() || searching()">
+      <mat-icon>search</mat-icon>{{ 'tickets.findTrain' | t }}
+    </button>
+
+    @if (searching()) {
+      <div class="center"><mat-spinner diameter="28" /></div>
+    } @else if (results() !== null) {
+      @if (direct().length) {
+        <ul class="list-reset trips">
+          @for (c of direct(); track c.id) {
+            <li>
+              <button type="button" class="trip" [class.on]="picked()?.id === c.id" (click)="picked.set(c); error.set(null)">
+                <app-line-badge [label]="c.legs[0].trainNumber" [color]="c.legs[0].lineColor" />
+                <span class="trip-times">
+                  <app-time [scheduled]="c.legs[0].from.scheduledTime" [expected]="c.legs[0].from.expectedTime" />
+                  <span class="muted">→</span>
+                  <app-time [scheduled]="c.legs[0].to.scheduledTime" [expected]="c.legs[0].to.expectedTime" />
+                </span>
+                <span class="muted small">{{ c.departure | day }}</span>
+                @if (picked()?.id === c.id) {
+                  <mat-icon class="check">check_circle</mat-icon>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted center">{{ 'tickets.noDirect' | t }}</p>
+      }
+    }
+  }
+
+  <form [formGroup]="form" class="form-grid details">
+    <mat-form-field>
+      <mat-label>{{ 'tickets.reference' | t }}</mat-label>
+      <input matInput formControlName="reference" />
+      <mat-hint>{{ 'tickets.referenceHint' | t }}</mat-hint>
+      @if (form.controls.reference.hasError('server')) {
+        <mat-error>{{ form.controls.reference.getError('server') }}</mat-error>
+      } @else if (form.controls.reference.invalid) {
+        <mat-error>{{ 'common.required' | t }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'tickets.product' | t }}</mat-label>
+      <input matInput formControlName="productName" [placeholder]="'tickets.productHint' | t" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'tickets.class' | t }}</mat-label>
+      <mat-select formControlName="travelClass">
+        <mat-option [value]="2">{{ 'tickets.classLong' | t: { n: 2 } }}</mat-option>
+        <mat-option [value]="1">{{ 'tickets.classLong' | t: { n: 1 } }}</mat-option>
+        <mat-option [value]="null">{{ 'common.none' | t }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'tickets.qrCode' | t }}</mat-label>
+      <input matInput formControlName="qrPayload" />
+      <mat-hint>{{ 'tickets.qrHint' | t }}</mat-hint>
+    </mat-form-field>
+    @if (kind() === 'pass') {
+      <mat-form-field>
+        <mat-label>{{ 'tickets.validFrom' | t }}</mat-label>
+        <input matInput type="date" formControlName="validFrom" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>{{ 'tickets.validTo' | t }}</mat-label>
+        <input matInput type="date" formControlName="validUntil" />
+        @if (form.controls.validUntil.hasError('server')) {
+          <mat-error>{{ form.controls.validUntil.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+    }
+  </form>
+
+  @if (error()) {
+    <p class="error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>{{ 'common.cancel' | t }}</button>
+  <button mat-flat-button (click)="save()" [disabled]="busy()">{{ 'common.save' | t }}</button>
+</mat-dialog-actions>

@@ -1,0 +1,96 @@
+<section class="card enter">
+  <div class="head">
+    <div>
+      <h2><mat-icon>{{ def.icon }}</mat-icon>{{ def.title | t }}</h2>
+      <p class="muted small">{{ def.intro | t }}</p>
+    </div>
+    @if (def.canCreate !== false) {
+      <button mat-flat-button (click)="open(null)"><mat-icon>add</mat-icon>{{ 'setup.new' | t }}</button>
+    }
+  </div>
+
+  @if (def.searchable !== false) {
+  <mat-form-field class="search">
+    <mat-label>{{ 'common.search' | t }}</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput (input)="onSearch($any($event.target).value)" />
+  </mat-form-field>
+  }
+
+  @if (rows() === null) {
+    <div class="skeleton" style="height: 280px"></div>
+  } @else if (!rows()!.length) {
+    <div class="empty">
+      <mat-icon>{{ def.icon }}</mat-icon>
+      <strong>{{ (q() ? 'common.noResults' : 'setup.empty') | t }}</strong>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            @for (c of def.columns; track c.key) {
+              <th [class.hide-m]="c.hideMobile">{{ c.label ? (c.label | t) : '' }}</th>
+            }
+            <th class="actions-col"><span class="sr-only">{{ 'setup.actions' | t }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.id) {
+            <tr class="clickable" (click)="open(r)">
+              @for (c of def.columns; track c.key) {
+                <td [class.hide-m]="c.hideMobile" [class.nowrap-cell]="c.kind === 'day' || c.kind === 'date' || c.nowrap">
+                  @let v = cell(r, c);
+                  @switch (c.kind) {
+                    @case ('color') {
+                      <span class="swatch" [style.background]="v || 'var(--c-border)'"></span>
+                    }
+                    @case ('bool') {
+                      <mat-icon class="bool" [class.yes]="v">{{ v === true ? 'check_circle' : v === false ? 'cancel' : 'help' }}</mat-icon>
+                    }
+                    @case ('ref') {
+                      {{ lookup.name(c.resource!, $any(v)) ?? '…' }}
+                    }
+                    @case ('translate') {
+                      <span class="pill neutral">{{ (c.prefix ?? '') + $any(v) | t }}</span>
+                    }
+                    @case ('day') {
+                      {{ v ? f.date($any(v) + 'T12:00:00Z') : '–' }}
+                    }
+                    @case ('date') {
+                      {{ v ? ($any(v) | dateTime) : '–' }}
+                    }
+                    @default {
+                      {{ v ?? '–' }}
+                    }
+                  }
+                </td>
+              }
+              <td class="actions-col" (click)="$event.stopPropagation()">
+                <button mat-icon-button (click)="open(r)" [matTooltip]="'common.edit' | t" [attr.aria-label]="'common.edit' | t">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                @if (def.canDelete !== false) {
+                  <button mat-icon-button class="del" (click)="remove(r)" [matTooltip]="'common.delete' | t" [attr.aria-label]="'common.delete' | t">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="muted small">{{ 'setup.count' | t: { n: total() } }}</span>
+      <span class="spacer"></span>
+      <button mat-icon-button (click)="go(page() - 1)" [disabled]="page() <= 1" [attr.aria-label]="'common.previous' | t">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="small tabular">{{ page() }} / {{ pages() }}</span>
+      <button mat-icon-button (click)="go(page() + 1)" [disabled]="page() >= pages()" [attr.aria-label]="'common.next' | t">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+  }
+</section>

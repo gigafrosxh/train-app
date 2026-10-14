@@ -1,0 +1,132 @@
+<section class="card search">
+  <div class="stations">
+    <app-station-picker
+      #fromPicker
+      [label]="'rail.from' | t"
+      icon="trip_origin"
+      [(station)]="from"
+      [error]="fieldError()['fromStationId'] ?? null"
+    />
+    <button
+      mat-icon-button
+      class="swap"
+      type="button"
+      (click)="swap()"
+      [attr.aria-label]="'rail.swap' | t"
+      [matTooltip]="'rail.swap' | t"
+    >
+      <mat-icon>swap_vert</mat-icon>
+    </button>
+    <app-station-picker
+      #toPicker
+      [label]="'rail.to' | t"
+      icon="place"
+      [(station)]="to"
+      [error]="fieldError()['toStationId'] ?? null"
+    />
+  </div>
+  <div class="row when">
+    <mat-form-field>
+      <mat-label>{{ 'rail.date' | t }}</mat-label>
+      <input matInput type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>{{ 'rail.departAfter' | t }}</mat-label>
+      <input matInput type="time" [value]="time()" (change)="time.set($any($event.target).value)" />
+    </mat-form-field>
+    <button mat-button type="button" (click)="setNow()">{{ 'rail.now' | t }}</button>
+    <span class="spacer"></span>
+    <button mat-flat-button class="go" type="button" (click)="search()" [disabled]="loading()">
+      <mat-icon>search</mat-icon>{{ 'rail.search' | t }}
+    </button>
+  </div>
+  @if (fieldError()['departAfter']) {
+    <p class="err small">{{ fieldError()['departAfter'] }}</p>
+  }
+</section>
+
+@if (error()) {
+  <div class="card empty">
+    <mat-icon>error</mat-icon>
+    <strong>{{ error() }}</strong>
+  </div>
+} @else if (loading() && !results()) {
+  <div class="center"><mat-spinner diameter="32" /></div>
+} @else if (results(); as list) {
+  @if (!list.length) {
+    <div class="card empty">
+      <mat-icon>search_off</mat-icon>
+      <strong>{{ 'rail.noConnections' | t }}</strong>
+      <span>{{ 'rail.noConnectionsHint' | t }}</span>
+    </div>
+  } @else {
+    <ul class="list-reset results enter-list">
+      @for (c of list; track c.id) {
+        <li class="card conn" [class.open]="open() === c.id">
+          <button type="button" class="conn-head" (click)="toggle(c.id)" [attr.aria-expanded]="open() === c.id">
+            <span class="times">
+              <span class="t">{{ c.departure | hm }}</span>
+              <span class="line" aria-hidden="true"></span>
+              <span class="t">{{ c.arrival | hm }}</span>
+            </span>
+            <span class="summary">
+              <span class="strong">{{ c.durationSeconds | dur }}</span>
+              <span class="muted">
+                · {{ c.transfers === 0 ? ('rail.direct' | t) : ('rail.transfers' | t: { n: c.transfers }) }}
+                · {{ c.departure | day }}
+              </span>
+            </span>
+            <span class="badges">
+              @for (l of c.legs; track l.tripId; let last = $last) {
+                <app-line-badge [label]="l.trainNumber" [color]="l.lineColor" />
+                @if (!last) {
+                  <mat-icon class="sep">chevron_right</mat-icon>
+                }
+              }
+            </span>
+            <mat-icon class="chev">{{ open() === c.id ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </button>
+
+          @if (open() === c.id) {
+            <ol class="list-reset legs">
+              @for (l of c.legs; track l.tripId; let i = $index; let last = $last) {
+                <li class="leg">
+                  <div class="leg-line" [style.--line]="l.lineColor ?? 'var(--c-primary)'"></div>
+                  <div class="leg-body">
+                    <div class="stop">
+                      <app-time [scheduled]="l.from.scheduledTime" [expected]="l.from.expectedTime" [cancelled]="l.from.cancelled" />
+                      <strong>{{ l.from.station.name }}</strong>
+                      <app-platform [scheduled]="l.from.scheduledPlatform" [expected]="l.from.expectedPlatform" />
+                    </div>
+                    <a class="ride clickable" [routerLink]="['/rail/trips', l.tripId]">
+                      <app-line-badge [label]="l.trainNumber" [color]="l.lineColor" />
+                      <span class="muted">{{ l.lineName }} · {{ 'common.towards' | t: { place: l.from.destination.name } }}</span>
+                      <app-delay [seconds]="l.from.delaySeconds" [cancelled]="l.from.cancelled" [hideOnTime]="true" />
+                      <mat-icon class="chev-s">chevron_right</mat-icon>
+                    </a>
+                    <div class="stop">
+                      <app-time [scheduled]="l.to.scheduledTime" [expected]="l.to.expectedTime" [cancelled]="l.to.cancelled" />
+                      <strong>{{ l.to.station.name }}</strong>
+                      <app-platform [scheduled]="l.to.scheduledPlatform" [expected]="l.to.expectedPlatform" />
+                    </div>
+                  </div>
+                </li>
+                @if (!last) {
+                  <li class="transfer">
+                    <mat-icon>transfer_within_a_station</mat-icon>
+                    {{ 'rail.transferAt' | t: { min: transferMinutes(c, i), station: l.to.station.name } }}
+                  </li>
+                }
+              }
+            </ol>
+          }
+        </li>
+      }
+    </ul>
+    @if (list.length < total()) {
+      <div class="center">
+        <button mat-stroked-button (click)="more()" [disabled]="loading()">{{ 'rail.laterConnections' | t }}</button>
+      </div>
+    }
+  }
+}

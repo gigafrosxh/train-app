@@ -1,0 +1,44 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "start:live": "ng serve --configuration live",
+    "i18n:check": "node scripts/check-i18n.mjs"
+  },
+  "private": true,
+  "packageManager": "npm@11.11.0",
+  "dependencies": {
+    "@angular/cdk": "^22.2.2",
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/material": "^22.2.2",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "maplibre-gl": "^5.14.0",
+    "qrcode": "^1.5.4",
+    "rxjs": "~7.8.0",
+    "socket.io-client": "^4.8.1",
+    "topojson-client": "^3.1.0",
+    "tslib": "^2.3.0",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.2",
+    "@angular/cli": "^22.2.2",
+    "@angular/compiler-cli": "^22.2.0",
+    "@types/geojson": "^7946.0.16",
+    "@types/qrcode": "^1.5.6",
+    "@types/topojson-client": "^3.1.5",
+    "jsdom": "^30.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.0"
+  }
+}

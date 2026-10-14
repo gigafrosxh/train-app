@@ -1,0 +1,119 @@
+<div class="map-page">
+  <div #map class="map-canvas" role="region" [attr.aria-label]="'map.aria' | t"></div>
+
+  <!-- Info & Legende -->
+  <section class="map-panel enter">
+    <div class="mp-head">
+      <div>
+        <h1>{{ countryName() }}</h1>
+        <p class="muted small">
+          @if (loading()) {
+            {{ 'map.loading' | t }}
+          } @else {
+            {{ 'map.trainsNow' | t: { n: count() } }}
+          }
+          @if (live()) {
+            · <span class="live"><span class="dot"></span>{{ 'rail.live' | t }}</span>
+          }
+        </p>
+      </div>
+      <button mat-icon-button (click)="legendOpen.set(!legendOpen())" [attr.aria-label]="'map.legend' | t">
+        <mat-icon>{{ legendOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </button>
+    </div>
+
+    <div class="mp-search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        [placeholder]="'map.findTrain' | t"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+        [attr.aria-label]="'map.findTrain' | t"
+      />
+    </div>
+    @if (matches().length) {
+      <ul class="list-reset mp-matches">
+        @for (t of matches(); track t.tripId) {
+          <li>
+            <button type="button" (click)="pickMatch(t)">
+              <strong>{{ t.trainNumber }}</strong>
+              <span class="muted small">{{ t.lineName }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else if (query() && !matches().length) {
+      <p class="muted small mp-none">{{ 'map.noMatch' | t }}</p>
+    }
+
+    @if (legendOpen()) {
+      <ul class="list-reset legend">
+        <li><span class="lg-line"></span>{{ 'map.legendMain' | t }}</li>
+        <li><span class="lg-line minor"></span>{{ 'map.legendMinor' | t }}</li>
+        <li><span class="lg-dot ok"></span>{{ 'map.legendOnTime' | t }}</li>
+        <li><span class="lg-dot slight"></span>{{ 'map.legendSlight' | t }}</li>
+        <li><span class="lg-dot late"></span>{{ 'map.legendLate' | t }}</li>
+        <li><span class="lg-dot est"></span>{{ 'map.legendEstimated' | t }}</li>
+      </ul>
+      @if (railStatus() && railStatus() !== 'READY') {
+        <p class="note small">{{ 'map.dataStatus.' + railStatus() | t }}</p>
+      }
+    }
+  </section>
+
+  <!-- Werkzeuge -->
+  <div class="map-tools">
+    <button mat-mini-fab class="tool" (click)="toggle3d()" [matTooltip]="(threeD() ? 'map.to2d' : 'map.to3d') | t" matTooltipPosition="left">
+      <span class="tool-text">{{ threeD() ? '2D' : '3D' }}</span>
+    </button>
+    <button mat-mini-fab class="tool" (click)="recenter()" [matTooltip]="'map.recenter' | t" matTooltipPosition="left" [attr.aria-label]="'map.recenter' | t">
+      <mat-icon>fit_screen</mat-icon>
+    </button>
+  </div>
+
+  @if (failed()) {
+    <div class="map-error">
+      <mat-icon>cloud_off</mat-icon>{{ 'map.loadFailed' | t }}
+    </div>
+  }
+
+  <!-- Gewählter Zug -->
+  @if (selected(); as t) {
+    <section class="train-card enter">
+      <div class="tc-head">
+        <span class="tc-num">{{ t.trainNumber }}</span>
+        <span class="muted">{{ t.lineName }}</span>
+        <span class="spacer"></span>
+        <button mat-icon-button (click)="select(null)" [attr.aria-label]="'common.close' | t"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="tc-body">
+        @if (t.nextStopName) {
+          <p><span class="muted">{{ 'map.nextStop' | t }}</span> <strong>{{ t.nextStopName }}</strong></p>
+        }
+        <div class="row">
+          <app-delay [seconds]="t.delaySeconds" />
+          <span class="pill neutral" [class.warn]="t.isStale">
+            <mat-icon>{{ t.positionType === 'REALTIME' && !t.isStale ? 'sensors' : 'schedule' }}</mat-icon>
+            {{ positionLabel(t) }}
+          </span>
+        </div>
+        @if (t.positionType !== 'REALTIME') {
+          <p class="muted small">{{ 'map.estimatedHint' | t: { time: positionTime(t) } }}</p>
+        } @else {
+          <p class="muted small">{{ 'map.reportedAt' | t: { time: positionTime(t) } }}</p>
+        }
+      </div>
+      <div class="row tc-actions">
+        <a mat-flat-button [routerLink]="['/rail/trips', t.tripId]"><mat-icon>route</mat-icon>{{ 'map.openTrip' | t }}</a>
+        <button mat-stroked-button (click)="toggleFollow()" [class.on]="follow()">
+          <mat-icon>{{ follow() ? 'gps_fixed' : 'gps_not_fixed' }}</mat-icon>{{ (follow() ? 'map.following' : 'map.follow') | t }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (attribution()) {
+    <div class="map-attrib">{{ attribution() }} · Natural Earth</div>
+  }
+</div>

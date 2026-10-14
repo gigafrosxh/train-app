@@ -1,0 +1,58 @@
+name: Release
+
+# Tag vX.Y.Z-rc.N → Pre-release, Tag vX.Y.Z → Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Version prüfen
+        run: node scripts/version.mjs check "$GITHUB_REF_NAME"
+
+      - name: Frontend bauen
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run i18n:check
+          npm run build
+
+      - name: Backend bauen
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pakete schnüren
+        run: |
+          (cd frontend/dist/frontend/browser && zip -qr "$GITHUB_WORKSPACE/gleis-frontend-$GITHUB_REF_NAME.zip" .)
+          tar -czf "gleis-backend-$GITHUB_REF_NAME.tar.gz" -C backend dist package.json package-lock.json README.md .env.example
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+          case "$GITHUB_REF_NAME" in
+            *-*) kind="--prerelease" ;;
+            *)   kind="--latest" ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" $kind \
+            --title "Gleis $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            "gleis-frontend-$GITHUB_REF_NAME.zip" "gleis-backend-$GITHUB_REF_NAME.tar.gz"

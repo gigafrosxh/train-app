@@ -1,0 +1,229 @@
+<div class="page wide">
+  <header class="page-head enter">
+    <div>
+      <h1>{{ 'plan.title' | t }}</h1>
+      <p class="sub">{{ 'plan.subtitle' | t }}</p>
+    </div>
+  </header>
+
+  @if (auth.role() === 'WORKER') {
+    <div class="scope enter">
+      <mat-icon>badge</mat-icon>
+      <span class="muted">{{ 'plan.allowed' | t }}</span>
+      @for (a of assignments(); track a.id) {
+        <span class="pill" [matTooltip]="(a.scope === 'COMPANY' ? 'plan.scopeCompany' : 'plan.scopeTrain') | t">
+          <mat-icon>{{ a.scope === 'COMPANY' ? 'apartment' : 'train' }}</mat-icon>{{ assignmentLabel(a) }}
+        </span>
+      } @empty {
+        <span class="pill neutral">{{ 'plan.noAssignments' | t }}</span>
+      }
+    </div>
+  }
+
+  <div class="layout">
+    <!-- Liste -->
+    <section class="card list">
+      <mat-form-field>
+        <mat-label>{{ 'plan.search' | t }}</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [ngModel]="q()" (ngModelChange)="q.set($event)" />
+      </mat-form-field>
+      <mat-button-toggle-group
+        class="segmented filter"
+        [value]="onlyRunning()"
+        (change)="onlyRunning.set($event.value)"
+        [hideSingleSelectionIndicator]="true"
+      >
+        <mat-button-toggle [value]="false">{{ 'plan.all' | t }}</mat-button-toggle>
+        <mat-button-toggle [value]="true">{{ 'plan.running' | t }}</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      @if (trips() === null) {
+        <div class="skeleton" style="height: 300px; margin-top: 12px"></div>
+      } @else {
+        <ul class="list-reset trips">
+          @for (t of shown(); track t.id) {
+            <li>
+              <button type="button" class="trip" [class.on]="t.id === selectedId()" (click)="select(t)">
+                <app-line-badge [label]="t.trainNumber" [color]="t.lineColor" />
+                <span class="trip-text">
+                  <strong>{{ t.origin.name }} → {{ t.destination.name }}</strong>
+                  <span class="muted small">{{ t.scheduledDeparture | hm }} – {{ t.scheduledArrival | hm }}</span>
+                </span>
+                <span class="trip-state">
+                  @if (t.status === 'RUNNING') {
+                    <span class="live-dot" [matTooltip]="'trip.running' | t"></span>
+                  }
+                  <app-delay [seconds]="t.delaySeconds" [cancelled]="t.status === 'CANCELLED'" [hideOnTime]="true" />
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li class="empty small">{{ 'plan.noTrips' | t }}</li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Bearbeitung -->
+    <section class="editor">
+      @if (!selectedId()) {
+        <div class="card empty">
+          <mat-icon>edit_calendar</mat-icon>
+          <strong>{{ 'plan.pick' | t }}</strong>
+        </div>
+      } @else if (!trip()) {
+        <div class="card"><div class="skeleton" style="height: 420px"></div></div>
+      } @else {
+        @let t = trip()!;
+        @if (stale()) {
+          <div class="stale enter">
+            <mat-icon>sync_problem</mat-icon>
+            <span>{{ 'plan.staleText' | t }}</span>
+            <button mat-button (click)="reload()">{{ 'plan.reload' | t }}</button>
+          </div>
+        }
+
+        <div class="card enter">
+          <div class="row head">
+            <app-line-badge [label]="t.trainNumber" [color]="t.lineColor" />
+            <h2>{{ t.origin.name }} → {{ t.destination.name }}</h2>
+            <span class="spacer"></span>
+            <a mat-button [routerLink]="['/rail/trips', t.id]">
+              <mat-icon>open_in_new</mat-icon>{{ 'plan.userView' | t }}
+            </a>
+          </div>
+          <p class="muted small">
+            {{ t.scheduledDeparture | day }} · {{ t.companyName }} ·
+            {{ 'plan.version' | t: { n: t.version } }}
+          </p>
+
+          <div class="block">
+            <h3>{{ 'plan.delay' | t }}</h3>
+            <p class="muted small">{{ 'plan.delayHint' | t }}</p>
+            <div class="quick">
+              @for (m of quick; track m) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  [class.on]="delayMin() === m"
+                  (click)="delayMin.set(m)"
+                  [disabled]="t.status === 'CANCELLED'"
+                >
+                  {{ m === 0 ? ('status.onTime' | t) : '+' + m }}
+                </button>
+              }
+              <mat-form-field class="minutes">
+                <mat-label>{{ 'plan.minutes' | t }}</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="-5"
+                  max="600"
+                  [ngModel]="delayMin()"
+                  (ngModelChange)="delayMin.set($event === '' || $event === null ? null : +$event)"
+                  [disabled]="t.status === 'CANCELLED'"
+                />
+              </mat-form-field>
+            </div>
+            <div class="form-grid">
+              <mat-form-field>
+                <mat-label>{{ 'plan.reason' | t }}</mat-label>
+                <mat-select [ngModel]="reasonCode()" (ngModelChange)="reasonCode.set($event)">
+                  <mat-option [value]="null">{{ 'common.none' | t }}</mat-option>
+                  @for (r of reasons; track r) {
+                    <mat-option [value]="r">{{ 'reasons.' + r | t }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>{{ 'plan.reasonText' | t }}</mat-label>
+                <input matInput maxlength="200" [ngModel]="reasonText()" (ngModelChange)="reasonText.set($event)" />
+                <mat-hint>{{ 'plan.reasonTextHint' | t }}</mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="row actions">
+              <button mat-flat-button (click)="saveDelay()" [disabled]="busy() || !delayDirty() || t.status === 'CANCELLED'">
+                <mat-icon>save</mat-icon>{{ 'plan.saveDelay' | t }}
+              </button>
+              <span class="spacer"></span>
+              <button mat-stroked-button class="cancel-btn" [class.restore]="t.status === 'CANCELLED'" (click)="toggleCancel()" [disabled]="busy()">
+                <mat-icon>{{ t.status === 'CANCELLED' ? 'undo' : 'block' }}</mat-icon>
+                {{ (t.status === 'CANCELLED' ? 'plan.restore' : 'plan.cancel') | t }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card enter">
+          <h3>{{ 'plan.stops' | t }}</h3>
+          <p class="muted small">{{ 'plan.stopsHint' | t }}</p>
+          <ul class="list-reset stops">
+            @for (s of t.stops; track s.id; let first = $first; let last = $last) {
+              <li class="stop" [class.dirty]="stopDirty(s)" [class.off]="draft(s).cancelled">
+                <div class="stop-name">
+                  <strong>{{ s.station.name }}</strong>
+                  <span class="muted small">
+                    {{ 'plan.planned' | t }}:
+                    @if (!first) { {{ 'trip.arr' | t }} {{ s.scheduledArrival | hm }} }
+                    @if (!first && !last) { · }
+                    @if (!last) { {{ 'trip.dep' | t }} {{ s.scheduledDeparture | hm }} }
+                    · {{ 'common.platformShort' | t }} {{ s.scheduledPlatform ?? '–' }}
+                  </span>
+                </div>
+                <div class="stop-fields">
+                  <mat-form-field class="tf">
+                    <mat-label>{{ 'trip.arr' | t }}</mat-label>
+                    <input
+                      matInput
+                      type="time"
+                      [disabled]="first || draft(s).cancelled"
+                      [ngModel]="draft(s).arr"
+                      (ngModelChange)="setDraft(s, { arr: $event })"
+                    />
+                  </mat-form-field>
+                  <mat-form-field class="tf">
+                    <mat-label>{{ 'trip.dep' | t }}</mat-label>
+                    <input
+                      matInput
+                      type="time"
+                      [disabled]="last || draft(s).cancelled"
+                      [ngModel]="draft(s).dep"
+                      (ngModelChange)="setDraft(s, { dep: $event })"
+                    />
+                  </mat-form-field>
+                  <mat-form-field class="pf">
+                    <mat-label>{{ 'common.platformShort' | t }}</mat-label>
+                    <input
+                      matInput
+                      maxlength="6"
+                      [disabled]="draft(s).cancelled"
+                      [ngModel]="draft(s).platform"
+                      (ngModelChange)="setDraft(s, { platform: $event })"
+                    />
+                  </mat-form-field>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [class.danger]="!draft(s).cancelled"
+                    (click)="setDraft(s, { cancelled: !draft(s).cancelled })"
+                    [matTooltip]="(draft(s).cancelled ? 'plan.stopRestore' : 'plan.stopCancel') | t"
+                    [attr.aria-label]="(draft(s).cancelled ? 'plan.stopRestore' : 'plan.stopCancel') | t"
+                  >
+                    <mat-icon>{{ draft(s).cancelled ? 'undo' : 'block' }}</mat-icon>
+                  </button>
+                </div>
+                @if (stopDirty(s)) {
+                  <div class="row stop-actions">
+                    <button mat-flat-button (click)="saveStop(s)" [disabled]="busy()">{{ 'common.save' | t }}</button>
+                    <button mat-button (click)="resetStop(s)">{{ 'common.discard' | t }}</button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+  </div>
+</div>

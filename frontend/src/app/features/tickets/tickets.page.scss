@@ -1,0 +1,122 @@
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+}
+
+.ticket {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2);
+  }
+
+  &.old {
+    opacity: 0.75;
+    .stub {
+      background: var(--c-surface-2);
+      color: var(--c-muted);
+    }
+  }
+}
+
+.stub {
+  position: relative;
+  flex: none;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  border-right: 2px dashed light-dark(rgb(255 255 255 / 55%), rgb(0 0 0 / 35%));
+
+  // Ausstanzungen wie bei einem Papierticket
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    right: -9px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--c-bg);
+  }
+  &::before {
+    top: -8px;
+  }
+  &::after {
+    bottom: -8px;
+  }
+
+  mat-icon {
+    font-size: 1.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+}
+
+.cls {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.product {
+  font-weight: 650;
+  margin-right: 4px;
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 1.05rem;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 1.1rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--c-muted);
+  }
+}
+
+.qr {
+  align-self: center;
+  margin-right: 14px;
+  color: var(--c-primary);
+}

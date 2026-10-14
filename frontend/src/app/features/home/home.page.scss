@@ -1,0 +1,254 @@
+.next {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, light-dark(#e3ecfd, #1a2b52) 0%, transparent 55%),
+    var(--c-surface);
+  border-color: light-dark(#d3def4, #26385f);
+
+  &.cancelled {
+    background: var(--c-surface);
+  }
+}
+
+.next-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-primary-strong);
+}
+
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--c-primary-strong);
+
+  &.live .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c-ok);
+    box-shadow: 0 0 0 0 var(--c-ok);
+    animation: pulse 1.6s infinite;
+  }
+}
+
+@keyframes pulse {
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.journey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.stop {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  align-items: flex-start;
+
+  &:last-child {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.big {
+  font-size: 1.9rem;
+  line-height: 1.1;
+}
+
+.where {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  strong {
+    font-size: 1.05rem;
+  }
+}
+
+.track {
+  width: clamp(48px, 12vw, 160px);
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--c-primary) 0 8px, transparent 8px 14px);
+  position: relative;
+
+  span {
+    position: absolute;
+    right: -2px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c-primary);
+  }
+}
+
+.actions {
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .journey {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .stop,
+  .stop:last-child {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .track {
+    width: 2px;
+    height: 22px;
+    margin-left: 10px;
+    background: repeating-linear-gradient(180deg, var(--c-primary) 0 6px, transparent 6px 11px);
+    span {
+      display: none;
+    }
+  }
+  .big {
+    font-size: 1.6rem;
+  }
+  .actions a {
+    flex: 1 1 auto;
+  }
+}
+
+.next-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+
+  > mat-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+    color: var(--c-primary);
+  }
+}
+
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: inherit;
+  background: var(--c-surface-2);
+
+  > mat-icon:first-child {
+    color: var(--c-primary);
+  }
+  &.warning > mat-icon:first-child {
+    color: var(--c-bad);
+  }
+}
+
+.alert-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chev {
+  color: var(--c-muted);
+}
+
+.tickets,
+.recent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-ticket,
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  margin: 0 -10px;
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.mt-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-strong);
+}
+
+.mt-text,
+.recent-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  text-decoration: none;
+  font-weight: 600;
+
+  mat-icon {
+    color: var(--c-primary);
+  }
+}
+
+@media (max-width: 600px) {
+  .quick {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}

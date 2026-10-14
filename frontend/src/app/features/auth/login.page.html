@@ -1,0 +1,162 @@
+<div class="wrap">
+  <section class="hero" aria-hidden="true">
+    <svg class="tracks" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.05" />
+          <stop offset="1" stop-color="#fff" stop-opacity="0.35" />
+        </linearGradient>
+      </defs>
+      <path d="M-40 700 C 160 620, 260 420, 640 380" />
+      <path d="M-40 760 C 200 660, 300 470, 640 450" />
+      <path d="M-40 540 C 120 520, 280 300, 640 120" />
+      <path d="M80 860 C 160 640, 380 520, 640 560" />
+    </svg>
+    <div class="hero-text">
+      <app-logo [size]="52" />
+      <h1>{{ 'login.heroTitle' | t }}</h1>
+      <p>{{ 'login.heroText' | t }}</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-top">
+      <span class="mobile-brand"><app-logo [size]="34" /> <strong>Gleis</strong></span>
+      <span class="spacer"></span>
+      <button mat-button type="button" (click)="toggleLanguage()">
+        <mat-icon>translate</mat-icon>
+        {{ i18n.lang() === 'de' ? 'English' : 'Deutsch' }}
+      </button>
+    </div>
+
+    <div class="form-card enter">
+      <h2>{{ (mode() === 'login' ? 'login.title' : 'login.registerTitle') | t }}</h2>
+      <p class="muted">{{ (mode() === 'login' ? 'login.subtitle' : 'login.registerSubtitle') | t }}</p>
+
+      @if (reason() === 'expired') {
+        <div class="note warn"><mat-icon>schedule</mat-icon>{{ 'login.expired' | t }}</div>
+      }
+      @if (reason() === 'passwordChanged') {
+        <div class="note ok"><mat-icon>check_circle</mat-icon>{{ 'login.passwordChanged' | t }}</div>
+      }
+      @if (registered()) {
+        <div class="note ok"><mat-icon>check_circle</mat-icon>{{ 'login.registered' | t }}</div>
+      }
+      @if (error()) {
+        <div class="note bad" role="alert"><mat-icon>error</mat-icon>{{ error() }}</div>
+      }
+
+      @if (mode() === 'login') {
+        <form [formGroup]="loginForm" (ngSubmit)="login()" class="stack">
+          <mat-form-field>
+            <mat-label>{{ 'login.email' | t }}</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="username" />
+            @if (loginForm.controls.email.hasError('server')) {
+              <mat-error>{{ loginForm.controls.email.getError('server') }}</mat-error>
+            } @else if (loginForm.controls.email.invalid) {
+              <mat-error>{{ 'login.emailInvalid' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>{{ 'login.password' | t }}</mat-label>
+            <input
+              matInput
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="showPassword.set(!showPassword())"
+              [attr.aria-label]="'login.showPassword' | t"
+            >
+              <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            @if (loginForm.controls.password.invalid) {
+              <mat-error>{{ 'login.passwordRequired' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <button mat-flat-button class="submit" type="submit" [disabled]="busy()">
+            @if (busy()) {
+              <mat-spinner diameter="20" />
+            } @else {
+              {{ 'login.submit' | t }}
+            }
+          </button>
+        </form>
+        <p class="switch">
+          {{ 'login.noAccount' | t }}
+          <button type="button" class="link" (click)="switchMode('register')">{{ 'login.toRegister' | t }}</button>
+        </p>
+      } @else {
+        <form [formGroup]="registerForm" (ngSubmit)="register()" class="stack">
+          <mat-form-field>
+            <mat-label>{{ 'login.name' | t }}</mat-label>
+            <input matInput formControlName="displayName" autocomplete="name" />
+            @if (registerForm.controls.displayName.invalid) {
+              <mat-error>{{ 'login.nameRequired' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>{{ 'login.email' | t }}</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="email" />
+            @if (registerForm.controls.email.hasError('server')) {
+              <mat-error>{{ registerForm.controls.email.getError('server') }}</mat-error>
+            } @else if (registerForm.controls.email.invalid) {
+              <mat-error>{{ 'login.emailInvalid' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>{{ 'login.password' | t }}</mat-label>
+            <input
+              matInput
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="new-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="showPassword.set(!showPassword())"
+              [attr.aria-label]="'login.showPassword' | t"
+            >
+              <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            <mat-hint>{{ 'login.passwordHint' | t }}</mat-hint>
+            @if (registerForm.controls.password.invalid) {
+              <mat-error>{{ 'login.passwordHint' | t }}</mat-error>
+            }
+          </mat-form-field>
+          <button mat-flat-button class="submit" type="submit" [disabled]="busy()">
+            @if (busy()) {
+              <mat-spinner diameter="20" />
+            } @else {
+              {{ 'login.registerSubmit' | t }}
+            }
+          </button>
+        </form>
+        <p class="switch">
+          {{ 'login.haveAccount' | t }}
+          <button type="button" class="link" (click)="switchMode('login')">{{ 'login.toLogin' | t }}</button>
+        </p>
+      }
+
+      @if (demo && mode() === 'login') {
+        <div class="demo">
+          <span class="muted small">{{ 'login.demo' | t }}</span>
+          <div class="demo-buttons">
+            @for (a of demoAccounts; track a.email) {
+              <button mat-stroked-button type="button" (click)="demoLogin(a.email)" [disabled]="busy()">
+                {{ 'roles.' + a.role | t }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    <app-version-footer />
+  </section>
+</div>

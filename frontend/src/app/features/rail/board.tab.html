@@ -1,0 +1,101 @@
+<section class="card filters">
+  <app-station-picker class="station" [label]="'rail.station' | t" icon="train" [(station)]="station" />
+  <div class="row opts">
+    <mat-button-toggle-group class="segmented" [value]="kind()" (change)="kind.set($event.value)" [hideSingleSelectionIndicator]="true">
+      <mat-button-toggle value="dep">{{ 'rail.departures' | t }}</mat-button-toggle>
+      <mat-button-toggle value="arr">{{ 'rail.arrivals' | t }}</mat-button-toggle>
+    </mat-button-toggle-group>
+    <mat-button-toggle-group class="segmented" [value]="later()" (change)="later.set($event.value)" [hideSingleSelectionIndicator]="true">
+      <mat-button-toggle [value]="false">{{ 'rail.now' | t }}</mat-button-toggle>
+      <mat-button-toggle [value]="true">{{ 'rail.later' | t }}</mat-button-toggle>
+    </mat-button-toggle-group>
+    @if (later()) {
+      <mat-form-field class="when">
+        <mat-label>{{ 'rail.date' | t }}</mat-label>
+        <input matInput type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
+      </mat-form-field>
+      <mat-form-field class="when">
+        <mat-label>{{ 'rail.time' | t }}</mat-label>
+        <input matInput type="time" [value]="time()" (change)="time.set($any($event.target).value)" />
+      </mat-form-field>
+    }
+  </div>
+</section>
+
+@if (!station()) {
+  <div class="card empty">
+    <mat-icon>departure_board</mat-icon>
+    <strong>{{ 'rail.pickStation' | t }}</strong>
+    <span>{{ 'rail.pickStationHint' | t }}</span>
+  </div>
+} @else if (error()) {
+  <div class="card empty">
+    <mat-icon>error</mat-icon>
+    <strong>{{ error() }}</strong>
+    <button mat-stroked-button (click)="load(1)">{{ 'common.retry' | t }}</button>
+  </div>
+} @else if (loading() && !entries()?.length) {
+  <div class="card">
+    @for (i of [1, 2, 3, 4, 5]; track i) {
+      <div class="skeleton" style="height: 44px; margin: 8px 0"></div>
+    }
+  </div>
+} @else if (entries(); as list) {
+  <section class="card board">
+    <div class="board-head">
+      <h2>{{ (kind() === 'dep' ? 'rail.departuresFrom' : 'rail.arrivalsAt') | t: { station: station()!.name } }}</h2>
+      @if (!later()) {
+        <span class="live"><span class="dot"></span>{{ 'rail.live' | t }}</span>
+      }
+    </div>
+    @if (!list.length) {
+      <div class="empty">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ 'rail.noTrains' | t }}</span>
+      </div>
+    } @else {
+      <div class="cols muted small" aria-hidden="true">
+        <span>{{ 'rail.colTime' | t }}</span>
+        <span>{{ 'rail.colTrain' | t }}</span>
+        <span>{{ (kind() === 'dep' ? 'rail.colTo' : 'rail.colFrom') | t }}</span>
+        <span>{{ 'rail.colPlatform' | t }}</span>
+        <span></span>
+      </div>
+      <ul class="list-reset rows enter-list">
+        @for (e of list; track e.stopId) {
+          <li>
+            <a class="board-row clickable" [class.cancelled]="e.cancelled" [routerLink]="['/rail/trips', e.tripId]">
+              <span class="c-time">
+                <app-time [scheduled]="e.scheduledTime" [expected]="e.expectedTime" [cancelled]="e.cancelled" />
+                <span class="day muted small">{{ e.scheduledTime | day }}</span>
+              </span>
+              <span class="c-train">
+                <app-line-badge [label]="e.trainNumber" [color]="e.lineColor" />
+              </span>
+              <span class="c-dest">
+                <strong>{{ kind() === 'dep' ? e.destination.name : e.origin.name }}</strong>
+                <span class="muted small">{{ e.lineName }}{{ e.companyName !== e.lineName ? ' · ' + e.companyName : '' }}</span>
+                @if (e.cancelled && e.reasonCode) {
+                  <span class="reason small">{{ 'reasons.' + e.reasonCode | t }}</span>
+                } @else if ((e.delaySeconds ?? 0) >= 300 && e.reasonCode) {
+                  <span class="reason small">{{ 'reasons.' + e.reasonCode | t }}</span>
+                }
+              </span>
+              <span class="c-plat">
+                <app-platform [scheduled]="e.scheduledPlatform" [expected]="e.expectedPlatform" />
+              </span>
+              <span class="c-status">
+                <app-delay [seconds]="e.delaySeconds" [cancelled]="e.cancelled" />
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+      @if (list.length < total()) {
+        <div class="more">
+          <button mat-stroked-button (click)="more()" [disabled]="loading()">{{ 'rail.moreTrains' | t }}</button>
+        </div>
+      }
+    }
+  </section>
+}

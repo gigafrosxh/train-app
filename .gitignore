@@ -1,0 +1,16 @@
+# Abhängigkeiten & Builds
+node_modules/
+dist/
+.angular/
+coverage/
+
+# Lokale Geheimnisse – niemals committen
+.env
+.env.*
+!.env.example
+*.secret
+
+# Lokale Werkzeuge
+.claude/
+.DS_Store
+*.log
