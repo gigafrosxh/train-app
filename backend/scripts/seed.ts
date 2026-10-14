@@ -50,11 +50,27 @@ export async function seed() {
       ["lnz", "Linz Hauptbahnhof", "LNZ", 14.2913, 48.29],
       ["szg", "Salzburg Hauptbahnhof", "SZG", 13.0458, 47.813],
     ];
-    for (const [key, name, code, lng, lat] of stations)
-      await m.query(
-        "INSERT INTO stations(id,name,code,country,coordinates,time_zone) VALUES($1,$2,$3,'AT',ST_SetSRID(ST_MakePoint($4,$5),4326),'Europe/Vienna') ON CONFLICT DO NOTHING",
-        [seedId(String(key)), name, code, lng, lat],
+    // Bestehende Station (z. B. aus dem OSM-Import) wiederverwenden: gleicher Name, < 300 m.
+    const stationIds = new Map<string, string>();
+    for (const [key, name, code, lng, lat] of stations) {
+      const [existing] = await m.query(
+        "SELECT id FROM stations WHERE country='AT' AND name=$1 AND ST_DWithin(coordinates::geography, ST_SetSRID(ST_MakePoint($2,$3),4326)::geography, 300) ORDER BY (id=$4) DESC, source_id IS NULL LIMIT 1",
+        [name, lng, lat, seedId(String(key))],
       );
+      if (existing) {
+        await m.query(
+          "UPDATE stations SET code=COALESCE(code,$2) WHERE id=$1",
+          [existing.id, code],
+        );
+        stationIds.set(String(key), existing.id);
+      } else {
+        await m.query(
+          "INSERT INTO stations(id,name,code,country,coordinates,time_zone) VALUES($1,$2,$3,'AT',ST_SetSRID(ST_MakePoint($4,$5),4326),'Europe/Vienna') ON CONFLICT DO NOTHING",
+          [seedId(String(key)), name, code, lng, lat],
+        );
+        stationIds.set(String(key), seedId(String(key)));
+      }
+    }
     const trackIds = [];
     for (let i = 0; i < stations.length - 1; i++) {
       const id = seedId("track" + i);
@@ -100,7 +116,7 @@ export async function seed() {
           [
             seedId("stop" + direction + i),
             route,
-            seedId(String(order[i][0])),
+            stationIds.get(String(order[i][0])),
             i,
           ],
         );

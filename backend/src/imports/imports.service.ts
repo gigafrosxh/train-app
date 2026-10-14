@@ -103,19 +103,27 @@ export class ImportsService implements OnModuleInit {
     const elements: any[] = [];
     const seen = new Set<string>();
     const area = '["ISO3166-1"="' + d.country + '"][admin_level=2]';
-    const bounds = (await this.overpassJson('[out:json][timeout:60];rel' + area + ';out bb;')).elements?.[0]?.bounds;
+    const bounds = (
+      await this.overpassJson("[out:json][timeout:60];rel" + area + ";out bb;")
+    ).elements?.[0]?.bounds;
     if (!bounds) throw new Error("SOURCE_INCOMPLETE");
     const n = d.kind === "RAILWAYS" ? 2 : 1;
     const dLat = (bounds.maxlat - bounds.minlat) / n;
     const dLon = (bounds.maxlon - bounds.minlon) / n;
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        const bbox = [bounds.minlat + i * dLat, bounds.minlon + j * dLon, bounds.minlat + (i + 1) * dLat, bounds.minlon + (j + 1) * dLon]
+        const bbox = [
+          bounds.minlat + i * dLat,
+          bounds.minlon + j * dLon,
+          bounds.minlat + (i + 1) * dLat,
+          bounds.minlon + (j + 1) * dLon,
+        ]
           .map((v) => v.toFixed(5))
           .join(",");
         const q = query.replace("(area.a)", "(" + bbox + ")(area.a)");
         const raw = await this.overpassJson(q);
-        if (raw.remark || !Array.isArray(raw.elements)) throw new Error("SOURCE_INCOMPLETE");
+        if (raw.remark || !Array.isArray(raw.elements))
+          throw new Error("SOURCE_INCOMPLETE");
         for (const el of raw.elements) {
           const key = el.type + ":" + el.id;
           if (!seen.has(key)) {
@@ -253,17 +261,31 @@ export class ImportsService implements OnModuleInit {
           } else {
             if (f.geometry.type !== "Point")
               throw new Error("SOURCE_GEOMETRY_INVALID");
-            await m.query(
-              `INSERT INTO stations(name,code,country,coordinates,time_zone,source_id) VALUES($1,$2,$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326),$5,$6) ON CONFLICT(source_id) DO UPDATE SET name=EXCLUDED.name,coordinates=EXCLUDED.coordinates,version=stations.version+1`,
-              [
-                props.name ?? "Unnamed station",
-                props.ref ?? null,
-                d.country,
-                JSON.stringify(f.geometry),
-                c.timezone,
-                d.country + ":" + sourceId,
-              ],
+            const values = [
+              props.name ?? "Unnamed station",
+              props.ref ?? null,
+              d.country,
+              JSON.stringify(f.geometry),
+              c.timezone,
+              d.country + ":" + sourceId,
+            ];
+            // Bestehende manuelle Station (gleicher Name, < 300 m) übernehmen statt doppelt anlegen.
+            const adopted = await m.query(
+              `UPDATE stations SET source_id=$6, coordinates=ST_SetSRID(ST_GeomFromGeoJSON($4),4326), code=COALESCE(code,$2), version=version+1
+               WHERE id = (SELECT id FROM stations WHERE source_id IS NULL AND country=$3 AND name=$1
+                 AND ST_DWithin(coordinates::geography, ST_SetSRID(ST_GeomFromGeoJSON($4),4326)::geography, 300) LIMIT 1)
+               AND NOT EXISTS (SELECT 1 FROM stations WHERE source_id=$6) RETURNING id`,
+              [...values.slice(0, 4), values[4], values[5]],
             );
+            if (
+              !(Array.isArray(adopted?.[0])
+                ? adopted[0].length
+                : adopted?.length)
+            )
+              await m.query(
+                `INSERT INTO stations(name,code,country,coordinates,time_zone,source_id) VALUES($1,$2,$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326),$5,$6) ON CONFLICT(source_id) DO UPDATE SET name=EXCLUDED.name,coordinates=EXCLUDED.coordinates,version=stations.version+1`,
+                values,
+              );
           }
           n++;
         }
