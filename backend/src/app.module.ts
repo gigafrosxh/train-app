@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Module, Global, Controller, Get, Inject } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { DatabaseModule, Database } from "./database/database";
@@ -44,12 +46,29 @@ export class OperationsModule {}
 export class MapModule {}
 @Module({ providers: [ImportsService], controllers: [ImportsController] })
 export class ImportsModule {}
+/** Version: VERSION im Projektstamm, sonst package.json. */
+function appVersion(): string {
+  for (const file of [join(process.cwd(), "..", "VERSION"), join(process.cwd(), "VERSION")]) {
+    try {
+      const v = readFileSync(file, "utf8").trim();
+      if (v) return v;
+    } catch {
+      // nächste Quelle
+    }
+  }
+  try {
+    return JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version;
+  } catch {
+    return "unknown";
+  }
+}
+const VERSION = appVersion();
 @Public()
 @Controller("health")
 class HealthController {
   constructor(@Inject(Database) private db: Database) {}
   @Get("live") live() {
-    return { status: "ok" };
+    return { status: "ok", version: VERSION };
   }
   @Get("ready") async ready() {
     await this.db.query("SELECT 1");

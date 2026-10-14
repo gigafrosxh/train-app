@@ -201,8 +201,15 @@ export class MapPage implements AfterViewInit, OnDestroy {
     }
     // Sofort auf das Land zoomen, Terrain erst danach passend zur Zoomstufe setzen.
     this.fit(false);
-    if (shape && this.threeD()) map.setTerrain({ source: 'raised', exaggeration: this.exaggeration() });
-    map.triggerRepaint();
+    // Terrain erst setzen, wenn die neue Höhenquelle bereitsteht – sofort gesetzt bleibt die Karte schwarz.
+    if (shape) {
+      map.once('idle', () => {
+        if (this.threeD() && this.loadedCountry === code) {
+          map.setTerrain({ source: 'raised', exaggeration: this.exaggeration() });
+          this.scheduleLabels();
+        }
+      });
+    }
 
     await Promise.all([this.loadRailways(code).catch(() => {}), this.loadStations(code).catch(() => {})]);
     if (this.trip()) void this.focusTrip(this.trip()!);

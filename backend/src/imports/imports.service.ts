@@ -105,7 +105,7 @@ export class ImportsService implements OnModuleInit {
     const area = '["ISO3166-1"="' + d.country + '"][admin_level=2]';
     const bounds = (await this.overpassJson('[out:json][timeout:60];rel' + area + ';out bb;')).elements?.[0]?.bounds;
     if (!bounds) throw new Error("SOURCE_INCOMPLETE");
-    const n = d.kind === "RAILWAYS" ? 5 : 1;
+    const n = d.kind === "RAILWAYS" ? 2 : 1;
     const dLat = (bounds.maxlat - bounds.minlat) / n;
     const dLon = (bounds.maxlon - bounds.minlon) / n;
     for (let i = 0; i < n; i++) {
@@ -156,12 +156,14 @@ export class ImportsService implements OnModuleInit {
   }
   /** Feste Endpunkte; ohne User-Agent antwortet Overpass mit 406. Bei Überlastung neu versuchen. */
   private async overpass(query: string): Promise<Response> {
+    // lz4/z sind weitere Instanzen von overpass-api.de und oft weniger ausgelastet.
     const endpoints = [
+      "https://lz4.overpass-api.de/api/interpreter",
       "https://overpass-api.de/api/interpreter",
-      "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+      "https://z.overpass-api.de/api/interpreter",
     ];
     let last = "SOURCE_UNAVAILABLE";
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       const url = endpoints[attempt % endpoints.length];
       try {
         const response = await fetch(url, {
