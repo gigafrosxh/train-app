@@ -264,6 +264,8 @@ export class MapPage implements AfterViewInit, OnDestroy {
 
   /** Zuletzt geladener Streckenstand: Zoomstufe und Ausschnitt. */
   private railLoaded: { zoom: number; bbox: Bbox } | null = null;
+  /** Gerade laufende Anfrage – gleiche Anfrage nicht doppelt stellen. */
+  private railPending: string | null = null;
 
   /**
    * Übersicht (Zoom < 10) für das ganze Land, darunter nur der sichtbare Ausschnitt.
@@ -280,10 +282,13 @@ export class MapPage implements AfterViewInit, OnDestroy {
       const covered = view[0] >= this.railLoaded.bbox[0] && view[1] >= this.railLoaded.bbox[1] && view[2] <= this.railLoaded.bbox[2] && view[3] <= this.railLoaded.bbox[3];
       if (sameLevel && (covered || !detail)) return;
     }
+    const bboxParam = bbox?.map((v) => v.toFixed(4)).join(',');
+    const key = `${code}|${detail ? zoom : 'overview'}|${bboxParam}`;
+    if (this.railPending === key) return;
+    this.railPending = key;
     try {
-      const fc = await firstValueFrom(
-        this.mapApi.railways({ country: code, bbox: bbox?.map((v) => v.toFixed(4)).join(','), zoom }),
-      );
+      const fc = await firstValueFrom(this.mapApi.railways({ country: code, bbox: bboxParam, zoom }));
+      if (this.railPending !== key) return; // inzwischen neuere Anfrage
       if (bbox) this.railLoaded = { zoom, bbox };
       (map.getSource('railways') as maplibregl.GeoJSONSource).setData(fc);
       this.zone.run(() => {
@@ -292,6 +297,8 @@ export class MapPage implements AfterViewInit, OnDestroy {
       });
     } catch (err) {
       this.zone.run(() => this.notify.error(err));
+    } finally {
+      if (this.railPending === key) this.railPending = null;
     }
   }
 

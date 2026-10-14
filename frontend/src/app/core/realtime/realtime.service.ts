@@ -73,7 +73,9 @@ export class RealtimeService {
   private readonly tripRefs = new Map<string, number>();
   private mapSub: MapSubscription | null = null;
   private readonly resync = new Subject<void>();
+  /** Nur bei echtem Reconnect – nicht bei der ersten Verbindung nach dem Login. */
   readonly resync$ = this.resync.asObservable();
+  private connectedOnce = false;
 
   constructor() {
     effect(() => {
@@ -82,14 +84,24 @@ export class RealtimeService {
       untracked(() => {
         const token = this.auth.token;
         if (loggedIn && token) this.transport.connect(token);
-        else this.transport.disconnect();
+        else {
+          this.transport.disconnect();
+          this.connectedOnce = false;
+        }
       });
     });
 
     this.transport.connected$.subscribe(() => {
+      // Abos sind an die Verbindung gebunden – immer erneut senden (idempotent).
       const ids = [...this.tripRefs.keys()];
       if (ids.length) void this.transport.emit('trips.subscribe', { tripIds: ids.slice(0, 100) });
-      // Karte: Reconnect beginnt mit neuem Abo und Snapshot (über resync$).
+      if (!this.connectedOnce) {
+        // Erste Verbindung: Seiten haben ihren REST-Stand gerade erst geladen.
+        this.connectedOnce = true;
+        if (this.mapSub) void this.transport.emit('map.subscribe', this.mapSub);
+        return;
+      }
+      // Reconnect: Karte beginnt mit neuem Abo und Snapshot, alle Seiten laden neu (über resync$).
       this.mapSub = null;
       this.resync.next();
     });
