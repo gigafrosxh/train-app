@@ -3,6 +3,20 @@
 Alle Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Testen.
 
+## [0.2.0] – 2026-10-14
+
+### Neu
+- Echte Bahndaten aus OpenStreetMap: Import für jedes Land (Strecken und Bahnhöfe), Österreich importiert
+- Nachbarländer (DE, CH, CZ, HU, SI, SK, IT, LI) im Setup auswählbar
+- Server-Version am Seitenrand (07d958d), `/health/live` liefert `version`
+
+### Verbessert
+- Karte: Schienennetz in der Übersicht zusammengefasst, Details beim Hineinzoomen; erhöhtes Land mit weichen Kanten
+- Beschriftungen überlappen nicht mehr; Züge sitzen korrekt auf der Strecke
+
+### Behoben
+- Ungewollte Abmeldung beim Neuladen (Rate-Limit auf Refresh, mehrere Tabs)
+
 ## [0.1.0] – 2026-10-14
 
 Erste Version von **Gleis** – Züge und Fahrpläne für ein ganzes Land.
