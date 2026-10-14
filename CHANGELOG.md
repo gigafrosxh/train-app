@@ -3,7 +3,7 @@
 Alle Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Testen.
 
-## [Unreleased]
+## [0.3.0] – 2026-10-14
 
 ### Neu
 - Demo-Netz Österreich auf echten OSM-Daten (`npm run seed:network`): 13 Linien, ~330 Fahrpläne, Züge fahren auf der Karte entlang der echten Strecken
