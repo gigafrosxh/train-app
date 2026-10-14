@@ -43,6 +43,8 @@ export const en: typeof de = {
     demo: 'Demo',
     demoHint: 'Runs with sample data in your browser – no server needed.',
     version: 'Version {v}',
+    serverVersion: 'Server {v}',
+    versionMismatch: 'App and server run different versions',
   },
   roles: {
     USER: 'Passenger',

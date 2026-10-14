@@ -42,6 +42,8 @@ export const de = {
     demo: 'Demo',
     demoHint: 'Läuft mit Beispieldaten im Browser – ohne Server.',
     version: 'Version {v}',
+    serverVersion: 'Server {v}',
+    versionMismatch: 'App und Server haben verschiedene Versionen',
   },
   roles: {
     USER: 'Fahrgast',

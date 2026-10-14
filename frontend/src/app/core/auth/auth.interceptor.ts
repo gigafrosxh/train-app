@@ -5,7 +5,7 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
-const PUBLIC = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/csrf'];
+const PUBLIC = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/csrf', '/health/live'];
 
 function isApi(req: HttpRequest<unknown>) {
   return req.url.startsWith(environment.apiBase);
