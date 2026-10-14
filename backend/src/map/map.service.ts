@@ -11,6 +11,7 @@ import { Events } from "../common/events";
 import { fail } from "../common/errors";
 import { paginate } from "../common/validation";
 import { along, locate, inside, Point, distance } from "./geometry";
+const railwayCache = new Map<string, { value: any; until: number }>();
 @Injectable()
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
@@ -257,6 +258,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     // sonst sprengt ein ganzes OSM-Landesnetz Antwortgröße und Limit.
     if (q.zoom < 10) {
       const skip = q.zoom < 8 ? ["industrial", "military", "test"] : [];
+      // Zusammenfassen ist teuer (ganzes Land) – kurz zwischenspeichern, Version am Datenstand prüfen.
+      const [stamp] = await this.db.query(
+        "SELECT count(*)::int AS n, max(updated_at) AS t FROM tracks WHERE country=$1",
+        [c.code],
+      );
+      const cacheKey = JSON.stringify([c.code, box, q.zoom, stamp?.n, String(stamp?.t)]);
+      const hit = railwayCache.get(cacheKey);
+      if (hit && hit.until > Date.now()) return hit.value;
       const merged = await this.db.query(
         `SELECT usage, bool_and(electrified) AS electrified, min(source) AS source, min(attribution) AS attribution, max(updated_at) AS updated_at,
                 ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_LineMerge(ST_Collect(geometry)),$6))::json AS geometry
@@ -264,7 +273,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           GROUP BY usage`,
         [c.code, ...box, tolerance, skip],
       );
-      return this.collection(c, merged.filter((r) => r.geometry).map((r) => ({ ...r, id: "merged:" + r.usage, name: null })));
+      const value = this.collection(c, merged.filter((r) => r.geometry).map((r) => ({ ...r, id: "merged:" + r.usage, name: null })));
+      if (railwayCache.size > 50) railwayCache.clear();
+      railwayCache.set(cacheKey, { value, until: Date.now() + 10 * 60000 });
+      return value;
     }
     const rows = await this.db.query(
       `SELECT id,name,usage,electrified,source,attribution,updated_at,ST_AsGeoJSON(ST_SimplifyPreserveTopology(geometry,$6))::json AS geometry FROM tracks WHERE country=$1 AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) ORDER BY id LIMIT 10001`,
