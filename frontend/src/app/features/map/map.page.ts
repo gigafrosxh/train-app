@@ -191,6 +191,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
     this.failed.set(false);
 
     const all = await loadCountries().catch(() => null);
+    if (this.map !== map) return; // Seite inzwischen verlassen
     const shape = all ? findCountry(all, code) : null;
     if (shape) {
       setRaisedCountry(code, shape);
@@ -212,6 +213,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
     }
 
     await Promise.all([this.loadRailways(code).catch(() => {}), this.loadStations(code).catch(() => {})]);
+    if (this.map !== map) return;
     if (this.trip()) void this.focusTrip(this.trip()!);
     this.startFeed();
   }
@@ -272,7 +274,8 @@ export class MapPage implements AfterViewInit, OnDestroy {
    * Neu geladen wird erst bei deutlich anderem Zoom oder wenn der Ausschnitt den geladenen verlässt.
    */
   private async loadRailways(code: string, force = true) {
-    const map = this.map!;
+    const map = this.map;
+    if (!map) return;
     const zoom = Math.floor(map.getZoom());
     const detail = zoom >= 10;
     const view = this.viewportBbox();
@@ -288,7 +291,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
     this.railPending = key;
     try {
       const fc = await firstValueFrom(this.mapApi.railways({ country: code, bbox: bboxParam, zoom }));
-      if (this.railPending !== key) return; // inzwischen neuere Anfrage
+      if (this.railPending !== key || this.map !== map) return; // neuere Anfrage oder Seite verlassen
       if (bbox) this.railLoaded = { zoom, bbox };
       (map.getSource('railways') as maplibregl.GeoJSONSource).setData(fc);
       this.zone.run(() => {
@@ -303,7 +306,8 @@ export class MapPage implements AfterViewInit, OnDestroy {
   }
 
   private async loadStations(code: string) {
-    const map = this.map!;
+    const map = this.map;
+    if (!map) return;
     const items: Station[] = [];
     try {
       for (let page = 1; page < 30; page++) {
@@ -314,6 +318,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
     } catch {
       return;
     }
+    if (this.map !== map) return;
     (map.getSource('stations') as maplibregl.GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: items.map((s) => ({
@@ -645,5 +650,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
     if (this.labelFrame) cancelAnimationFrame(this.labelFrame);
     if (this.moveTimer) clearTimeout(this.moveTimer);
     this.map?.remove();
+    // Laufende async-Schritte (Land, Strecken, Bahnhöfe) erkennen daran, dass die Karte weg ist.
+    this.map = null;
   }
 }
