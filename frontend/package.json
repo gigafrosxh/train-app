@@ -8,7 +8,8 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "start:live": "ng serve --configuration live",
-    "i18n:check": "node scripts/check-i18n.mjs"
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "test:ci": "ng test --watch=false"
   },
   "private": true,
   "packageManager": "npm@11.11.0",

@@ -30,12 +30,14 @@ jobs:
         run: |
           npm ci
           npm run i18n:check
+          npm run test:ci
           npm run build
 
       - name: Backend bauen
         working-directory: backend
         run: |
           npm ci
+          npm test
           npm run build
 
       - name: Pakete schnüren
