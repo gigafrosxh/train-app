@@ -27,6 +27,16 @@ Angular runs on 4200 with proxy for `/api` and `/socket.io` to port 3000, includ
 
 Do not commit `.env` or copy these accounts into production. Seed is rejected in production and does not overwrite existing account passwords. It supplies four Austrian stations, two directions, 14 days of timetables, one saved ticket, recent activity and a worker limited to RJ 60. RJ 61 deliberately tests forbidden access. All services and ticket references are fictional. Demo track geometry is synthetic and identified as such; it is not a surveyed railway alignment.
 
+### Demo-Netz Österreich (optional, nach dem OSM-Import)
+
+`npm run seed:network` legt auf den importierten OSM-Daten ein realistisches Netz an: 13 Linien (RJ Westbahn, Südbahn, Koralm, Tauern, Arlberg, Giselabahn, Unterinntal, Brenner, Ostbahn, S7, Murtal, Westexpress, Nightjet), 3 fiktive Gesellschaften, rund 330 Fahrpläne und Fahrten für 14 Tage.
+
+- Voraussetzung: Im Setup „Strecken laden“ und „Bahnhöfe laden“ für AT ausgeführt.
+- Streckenverlauf: kürzester Weg im OSM-Gleisnetz zwischen zwei Halten (A*, offene Gleisenden bis 300 m werden verbunden, Plausibilitätsprüfung max. 2,5× Luftlinie). Jeder Abschnitt wird als Strecke mit `source = 'DEMO_ROUTE'` gespeichert und über `route_tracks` verknüpft – damit schätzt das Backend Zugpositionen entlang der echten Strecke. `/map/railways` blendet diese Abschnitte aus (sie liegen deckungsgleich auf den OSM-Gleisen).
+- Fahrzeiten aus Weglänge und Zuggattung, plus Haltezeit. Das Skript ist idempotent (feste IDs) und kann erneut laufen.
+
+Doppelte Bahnhöfe: Die Migration `MergeStations` führt manuell angelegte Bahnhöfe mit gleichnamigen OSM-Bahnhöfen (< 300 m) zusammen. Import und Seed übernehmen bestehende Bahnhöfe künftig, statt sie doppelt anzulegen.
+
 ## Tests and API contract
 
 - `npm test`: daylight-saving transitions, calendar rules, geometry and registration validation.

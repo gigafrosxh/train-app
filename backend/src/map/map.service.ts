@@ -65,6 +65,49 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       properties: { tripId: id },
     };
   }
+  // Zwischenspeicher für die Positionsberechnung (alle 5 s für jede laufende Fahrt):
+  // Streckenverlauf je Route und Bahnhofskoordinaten ändern sich selten.
+  private lineMemo = new Map<string, Point[] | null>();
+  private stationMemo = new Map<string, Point>();
+  private memoAt = 0;
+
+  private resetMemoIfOld() {
+    if (Date.now() - this.memoAt > 60000) {
+      this.lineMemo.clear();
+      this.stationMemo.clear();
+      this.memoAt = Date.now();
+    }
+  }
+
+  private async stationAt(id: string): Promise<Point> {
+    let p = this.stationMemo.get(id);
+    if (!p) {
+      p = (await this.rail.station(id)).coordinates as Point;
+      this.stationMemo.set(id, p);
+    }
+    return p;
+  }
+
+  /** Durchgehender Linienzug einer Route in Fahrtrichtung, oder null. */
+  private async routeLine(t: any): Promise<Point[] | null> {
+    if (!this.lineMemo.has(t.routeId)) {
+      const [row] = await this.db.query(
+        `SELECT ST_AsGeoJSON(ST_LineMerge(ST_Collect(tr.geometry ORDER BY rt.sequence)))::json AS geometry FROM route_tracks rt JOIN tracks tr ON tr.id=rt.track_id WHERE rt.route_id=$1`,
+        [t.routeId],
+      );
+      let coords: Point[] | null =
+        row?.geometry?.type === "LineString" ? row.geometry.coordinates : null;
+      if (coords) {
+        const first = await this.stationAt(t.origin.id),
+          last = await this.stationAt(t.destination.id);
+        if (locate(coords, first).fraction > locate(coords, last).fraction)
+          coords = coords.slice().reverse();
+      }
+      this.lineMemo.set(t.routeId, coords);
+    }
+    return this.lineMemo.get(t.routeId)!;
+  }
+
   private async calculate(t: any) {
     const now = Date.now();
     const next = t.stops.find(
@@ -101,12 +144,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         source: real.source,
       };
     try {
-      const shape = await this.shape(t.id),
-        line = shape.geometry.coordinates;
+      const line = await this.routeLine(t);
+      if (!line) return { ...base, isStale: !!real };
       const fractions: number[] = [];
       for (const stop of t.stops) {
-        const station = await this.rail.station(stop.station.id);
-        const loc = locate(line, station.coordinates);
+        const loc = locate(line, await this.stationAt(stop.station.id));
         if (loc.distance > 1000) return { ...base, isStale: !!real };
         fractions.push(loc.fraction);
       }
@@ -156,6 +198,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.pending;
   }
   private async rebuild() {
+    this.resetMemoIfOld();
     const ids = await this.db.query(
       `SELECT t.id,c.country FROM trips t JOIN trains tr ON tr.id=t.train_id JOIN companies c ON c.id=tr.company_id WHERE EXISTS(SELECT 1 FROM trip_stops s WHERE s.trip_id=t.id AND COALESCE(s.expected_departure,s.scheduled_departure)<=now()) AND EXISTS(SELECT 1 FROM trip_stops s WHERE s.trip_id=t.id AND COALESCE(s.expected_arrival,s.scheduled_arrival)>=now())`,
     );
@@ -263,23 +306,34 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         "SELECT count(*)::int AS n, max(updated_at) AS t FROM tracks WHERE country=$1",
         [c.code],
       );
-      const cacheKey = JSON.stringify([c.code, box, q.zoom, stamp?.n, String(stamp?.t)]);
+      const cacheKey = JSON.stringify([
+        c.code,
+        box,
+        q.zoom,
+        stamp?.n,
+        String(stamp?.t),
+      ]);
       const hit = railwayCache.get(cacheKey);
       if (hit && hit.until > Date.now()) return hit.value;
       const merged = await this.db.query(
         `SELECT usage, bool_and(electrified) AS electrified, min(source) AS source, min(attribution) AS attribution, max(updated_at) AS updated_at,
                 ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_LineMerge(ST_Collect(geometry)),$6))::json AS geometry
-           FROM tracks WHERE country=$1 AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) AND NOT (usage = ANY($7))
+           FROM tracks WHERE country=$1 AND source <> 'DEMO_ROUTE' AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) AND NOT (usage = ANY($7))
           GROUP BY usage`,
         [c.code, ...box, tolerance, skip],
       );
-      const value = this.collection(c, merged.filter((r) => r.geometry).map((r) => ({ ...r, id: "merged:" + r.usage, name: null })));
+      const value = this.collection(
+        c,
+        merged
+          .filter((r) => r.geometry)
+          .map((r) => ({ ...r, id: "merged:" + r.usage, name: null })),
+      );
       if (railwayCache.size > 50) railwayCache.clear();
       railwayCache.set(cacheKey, { value, until: Date.now() + 10 * 60000 });
       return value;
     }
     const rows = await this.db.query(
-      `SELECT id,name,usage,electrified,source,attribution,updated_at,ST_AsGeoJSON(ST_SimplifyPreserveTopology(geometry,$6))::json AS geometry FROM tracks WHERE country=$1 AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) ORDER BY id LIMIT 10001`,
+      `SELECT id,name,usage,electrified,source,attribution,updated_at,ST_AsGeoJSON(ST_SimplifyPreserveTopology(geometry,$6))::json AS geometry FROM tracks WHERE country=$1 AND source <> 'DEMO_ROUTE' AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) ORDER BY id LIMIT 10001`,
       [c.code, ...box, tolerance],
     );
     if (rows.length > 10000)

@@ -13,7 +13,8 @@
     "test": "tsx --test test/*.test.ts",
     "test:integration": "tsx scripts/test-integration.ts",
     "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
-    "device:create": "tsx scripts/create-device.ts"
+    "device:create": "tsx scripts/create-device.ts",
+    "seed:network": "tsx scripts/seed-network.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
