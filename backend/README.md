@@ -62,3 +62,15 @@ This release targets one backend process. Snapshot cache, position publication a
 Connection search supports at most two same-station transfers with a five-minute minimum and has an exploration cap. Large networks need a dedicated indexed routing engine. Map requests have bounded geometry volume; no unbounded nationwide polling. Health endpoints contain no private data. JWT/CSRF secrets and CORS origins must be set for the deployment. Use an HTTPS reverse proxy; Secure cookies are enabled and Swagger is disabled with NODE_ENV=production. The server binds to loopback by default (HOST can override for container deployments).
 
 For initial production administrator creation set ADMIN_EMAIL and ADMIN_PASSWORD and run `npm run bootstrap:admin`. It creates a password-change-required account; the database must already be migrated. Temporary passwords are never returned by APIs or logged. Account deletion is blocked for the last active administrator. Ticket imports are a personal wallet only, not payment, issuance, or proof of travel validity.
+
+## Echte Fahrplan- und Positionsdaten (geplant)
+
+Derzeit sind Fahrpläne Demo-Daten; Strecken und Bahnhöfe kommen aus OpenStreetMap (Import in Setup). Für echte Daten sind kostenlose Quellen vorgesehen:
+
+| Quelle | Kostenlos | Echtzeit | Abdeckung |
+| --- | --- | --- | --- |
+| ÖBB Transport REST API | ja, öffentlich | ja | Züge gebietsweise über „Radar“ |
+| HAFAS / Scotty | technisch nutzbar | ja | gebietsweise |
+| ÖBB Open Data | ja | je nach Datensatz | umfangreiche Fahrplandaten (GTFS) |
+
+Geplant: Fahrpläne aus ÖBB Open Data (GTFS) importieren, Live-Positionen und Verspätungen über die Transport REST API (Radar) als Adapter in `POST /ingestion/positions` bzw. die Betriebsänderungen einspeisen. Positionen bleiben als `REALTIME` gekennzeichnet; ohne Daten wird weiter geschätzt.

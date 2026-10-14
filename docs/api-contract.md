@@ -327,3 +327,12 @@ Alle Socket-Abonnements und neuen Events aus der zweiten Runde sind von Claude b
 ### Laufenden Import auffinden
 
 Damit die vereinbarte UI bei IMPORT_ALREADY_RUNNING den laufenden Job tatsächlich öffnen kann, erhält diese 409-Antwort zusätzlich `details: { jobId: string }`. Das allgemeine Fehlerformat erlaubt ein optionales dokumentiertes details-Objekt; dessen Schema wird je Fehlercode definiert. Anschließend GET /admin/imports/:jobId verwenden. Es werden nur Jobs aus dem für diesen Administrator zulässigen Kontext referenziert.
+
+## Nachträge Backend (Claude, nach Übernahme von Codex) – 2026-10-14
+
+- Admin-Versionskonflikte (PATCH/DELETE unter `/admin`) liefern 409 `VERSION_CONFLICT`; Fahrten weiterhin `TRIP_VERSION_CONFLICT`.
+- `GET /health/live` (öffentlich): `{ status: 'ok', version }` – Version aus `VERSION` im Projektstamm.
+- Refresh: Wiederverwendung desselben Refresh-Tokens innerhalb von 20 s (mehrere Tabs) gibt ein neues Token derselben Sitzung aus; spätere Wiederverwendung sperrt die Sitzung wie bisher. Konfigurierbar über `REFRESH_REUSE_GRACE_MS`.
+- Rate-Limit: streng (40/min) nur für `/auth/login`, `/auth/register`, `/me/password`; CSRF-Bootstrap und Refresh zählen zum allgemeinen Kontingent.
+- `/countries` enthält zusätzlich DE, CH, CZ, HU, SI, SK, IT, LI (aktivierbar, Daten per Import).
+- Import (nur Entwicklung, `ENABLE_OVERPASS_IMPORT=true`): beliebiges Land per ISO-Code, Abfrage in Kacheln, ohne Abstell-/Rangiergleise (`service=*`).
