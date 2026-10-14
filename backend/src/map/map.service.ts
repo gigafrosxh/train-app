@@ -253,12 +253,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const c = await this.rail.country(q.country);
     const box = q.bbox?.split(",").map(Number) ?? [-180, -90, 180, 90];
     const tolerance = 360 / (256 * Math.pow(2, q.zoom));
+    // Übersicht (kleiner Zoom): Abschnitte je Streckentyp zu wenigen Linien zusammenfassen,
+    // sonst sprengt ein ganzes OSM-Landesnetz Antwortgröße und Limit.
+    if (q.zoom < 10) {
+      const skip = q.zoom < 8 ? ["industrial", "military", "test"] : [];
+      const merged = await this.db.query(
+        `SELECT usage, bool_and(electrified) AS electrified, min(source) AS source, min(attribution) AS attribution, max(updated_at) AS updated_at,
+                ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_LineMerge(ST_Collect(geometry)),$6))::json AS geometry
+           FROM tracks WHERE country=$1 AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) AND NOT (usage = ANY($7))
+          GROUP BY usage`,
+        [c.code, ...box, tolerance, skip],
+      );
+      return this.collection(c, merged.filter((r) => r.geometry).map((r) => ({ ...r, id: "merged:" + r.usage, name: null })));
+    }
     const rows = await this.db.query(
       `SELECT id,name,usage,electrified,source,attribution,updated_at,ST_AsGeoJSON(ST_SimplifyPreserveTopology(geometry,$6))::json AS geometry FROM tracks WHERE country=$1 AND geometry && ST_MakeEnvelope($2,$3,$4,$5,4326) ORDER BY id LIMIT 10001`,
       [c.code, ...box, tolerance],
     );
     if (rows.length > 10000)
       fail(422, "MAP_AREA_TOO_LARGE", "Zoom in to load the rail network.");
+    return this.collection(c, rows);
+  }
+  private collection(c: any, rows: any[]) {
     return {
       type: "FeatureCollection",
       features: rows.map((r) => ({

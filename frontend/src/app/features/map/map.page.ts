@@ -262,13 +262,29 @@ export class MapPage implements AfterViewInit, OnDestroy {
     this.scheduleLabels();
   }
 
-  private async loadRailways(code: string) {
+  /** Zuletzt geladener Streckenstand: Zoomstufe und Ausschnitt. */
+  private railLoaded: { zoom: number; bbox: Bbox } | null = null;
+
+  /**
+   * Übersicht (Zoom < 10) für das ganze Land, darunter nur der sichtbare Ausschnitt.
+   * Neu geladen wird erst bei deutlich anderem Zoom oder wenn der Ausschnitt den geladenen verlässt.
+   */
+  private async loadRailways(code: string, force = true) {
     const map = this.map!;
-    const bbox = this.countryBbox;
+    const zoom = Math.floor(map.getZoom());
+    const detail = zoom >= 10;
+    const view = this.viewportBbox();
+    const bbox: Bbox | null = detail ? this.grow(view, 0.5) : this.countryBbox;
+    if (!force && this.railLoaded) {
+      const sameLevel = detail ? this.railLoaded.zoom >= 10 : this.railLoaded.zoom < 10 && Math.abs(this.railLoaded.zoom - zoom) < 2;
+      const covered = view[0] >= this.railLoaded.bbox[0] && view[1] >= this.railLoaded.bbox[1] && view[2] <= this.railLoaded.bbox[2] && view[3] <= this.railLoaded.bbox[3];
+      if (sameLevel && (covered || !detail)) return;
+    }
     try {
       const fc = await firstValueFrom(
-        this.mapApi.railways({ country: code, bbox: bbox?.map((v) => v.toFixed(4)).join(','), zoom: Math.round(map.getZoom()) }),
+        this.mapApi.railways({ country: code, bbox: bbox?.map((v) => v.toFixed(4)).join(','), zoom }),
       );
+      if (bbox) this.railLoaded = { zoom, bbox };
       (map.getSource('railways') as maplibregl.GeoJSONSource).setData(fc);
       this.zone.run(() => {
         this.railStatus.set(fc.metadata?.dataStatus ?? null);
@@ -366,8 +382,15 @@ export class MapPage implements AfterViewInit, OnDestroy {
     void this.feed.start(this.settings.activeCountry(), this.viewportBbox());
   }
 
+  private grow(b: Bbox, factor: number): Bbox {
+    const dx = (b[2] - b[0]) * factor;
+    const dy = (b[3] - b[1]) * factor;
+    return [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
+  }
+
   private onMoveEnd() {
     this.scheduleLabels();
+    if (this.loadedCountry) void this.loadRailways(this.loadedCountry, false);
     // Entprellt: erst nach Ende der Bewegung neues Abo (Vertrag: ca. 400 ms)
     if (this.moveTimer) clearTimeout(this.moveTimer);
     this.moveTimer = setTimeout(() => this.subscribeViewport(), 400);
