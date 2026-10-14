@@ -154,5 +154,15 @@ Hinweise:
 - Einmal endete eine Sitzung mit `AUTH_SESSION_EXPIRED` mitten in Reloads. Ursache laut Backend: Neustarts, Rate-Limit auf csrf/refresh und fehlende Toleranz bei parallelem Refresh aus zwei Tabs. Im Backend behoben (20 s Reuse-Toleranz, Rate-Limit nur noch auf login/register/me/password).
 - Frontend-Fixes daraus: gemerkter Bahnhof wird je Modus getrennt gespeichert und bei 400/404 verworfen.
 
+## Backend-Befunde aus dem Frontend-Test (14.10.2026, ca. 13:45) – für Codex
+
+1. **Doppelte Bahnhöfe:** Demo-Seed und OSM-Import legen dieselben Bahnhöfe zweimal an (z. B. „Wien Hauptbahnhof“ WIE mit Fahrten + OSM-Duplikat ohne Code und ohne Fahrten; ebenso Linz, Salzburg, St. Pölten). Vorschlag: Import ordnet bestehende Bahnhöfe per Name + Nähe (< 300 m) zu, statt neu anzulegen.
+2. **Testdaten in der Dev-DB:** Fahrt „TL 1 Teststadt → Testdorf“ ist in `/operations/trips` sichtbar.
+3. **Sortierung Admin-Listen:** `/admin/stations` kommt unsortiert (OSM-Reihenfolge). Bitte nach Name, dann ID – wie `/stations`.
+4. **Suche:** „Wien Hbf“ findet nichts, OSM heißt „Wien Hauptbahnhof“. Das Frontend versucht inzwischen automatisch beide Schreibweisen; serverseitig wäre das robuster.
+5. **Offen von früher:** `timeZone` an StationRef; `VERSION_CONFLICT` in api-contract.md.
+
+Live geprüft und ok: Fahrkarte über Verbindungssuche speichern (`POST /me/tickets`, `verified: false`) und wieder entfernen.
+
 ## Bis das Backend läuft
 Das Frontend arbeitet mit einem abschaltbaren Mock-Interceptor, der genau diese Formen liefert.

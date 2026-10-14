@@ -100,7 +100,7 @@ export class StationPicker implements OnInit {
         switchMap((v) => {
           if (typeof v !== 'string') return of(null);
           if (v.trim().length < 1) return of({ items: [] as Station[] });
-          return this.api.stations({ q: v.trim(), pageSize: 8 }).pipe(catchError(() => of({ items: [] as Station[] })));
+          return this.search(v.trim());
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -109,6 +109,20 @@ export class StationPicker implements OnInit {
         this.options.set(res.items);
         this.searched.set(true);
       });
+  }
+
+  /** Suche; ohne Treffer zweiter Versuch mit „Hbf“ ↔ „Hauptbahnhof“ (Daten nutzen beide Schreibweisen). */
+  private search(q: string) {
+    const empty = { items: [] as Station[] };
+    const alt = /\bhbf\b/i.test(q)
+      ? q.replace(/\bhbf\b/i, 'Hauptbahnhof')
+      : /hauptbahnhof/i.test(q)
+        ? q.replace(/hauptbahnhof/i, 'Hbf')
+        : null;
+    return this.api.stations({ q, pageSize: 8 }).pipe(
+      switchMap((res) => (res.items.length || !alt ? of(res) : this.api.stations({ q: alt, pageSize: 8 }))),
+      catchError(() => of(empty)),
+    );
   }
 
   /** Von außen gesetzte Station anzeigen (z. B. nach Tauschen). */
