@@ -8,6 +8,15 @@ import { Database, camel } from "../database/database";
 import { fail } from "../common/errors";
 import { paginate } from "../common/validation";
 import { windowFor } from "./time";
+/** „Hbf“ und „Hauptbahnhof“ gleichwertig suchen (OSM schreibt aus, Fahrgäste kürzen ab). */
+function synonym(q?: string): string | null {
+  if (!q) return null;
+  if (/\bhbf\b/i.test(q))
+    return "%" + q.replace(/\bhbf\b/i, "Hauptbahnhof") + "%";
+  if (/hauptbahnhof/i.test(q))
+    return "%" + q.replace(/hauptbahnhof/i, "Hbf") + "%";
+  return null;
+}
 export const stationSql = `SELECT s.id,s.name,s.code,s.country,s.time_zone,s.version,ST_X(s.coordinates) AS lng,ST_Y(s.coordinates) AS lat FROM stations s`;
 export const ref = (s: any) => ({
   id: s.id,
@@ -44,8 +53,8 @@ export class RailService {
     const c = await this.country(q.country);
     const rows = await this.db.query(
       stationSql +
-        " WHERE s.country=$1 AND ($2::text IS NULL OR s.name ILIKE $2 OR s.code ILIKE $2) ORDER BY s.name,s.id",
-      [c.code, q.q ? "%" + q.q + "%" : null],
+        " WHERE s.country=$1 AND ($2::text IS NULL OR s.name ILIKE $2 OR s.code ILIKE $2 OR ($3::text IS NOT NULL AND s.name ILIKE $3)) ORDER BY s.name,s.id",
+      [c.code, q.q ? "%" + q.q + "%" : null, synonym(q.q)],
     );
     return paginate(
       rows.map((r) => {

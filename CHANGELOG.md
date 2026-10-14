@@ -3,6 +3,22 @@
 Alle Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Testen.
 
+## [Unreleased]
+
+### Neu
+- Demo-Netz Österreich auf echten OSM-Daten (`npm run seed:network`): 13 Linien, ~330 Fahrpläne, Züge fahren auf der Karte entlang der echten Strecken
+- Unit-Tests für die Frontend-Kernlogik, CI-Workflow für jeden Push auf `main`
+
+### Verbessert
+- Bahnhofssuche: „Hbf“ und „Hauptbahnhof“ gleichwertig (Frontend und Backend)
+- Admin-Listen alphabetisch sortiert
+- Positionsberechnung zwischengespeichert (Streckenverlauf, Bahnhofskoordinaten)
+- Keine doppelten Anfragen mehr beim Start (Home, Karte)
+
+### Behoben
+- Doppelte Bahnhöfe aus Demo-Daten und OSM-Import zusammengeführt; Import und Seed legen keine Duplikate mehr an
+- Karte: kein Fehler mehr beim Verlassen während des Ladens
+
 ## [0.2.0] – 2026-10-14
 
 ### Neu

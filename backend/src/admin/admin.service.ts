@@ -114,6 +114,16 @@ export class AdminService {
             v?.toLowerCase().includes(q.q.toLowerCase()),
           )),
     );
+    // Lesbare Sortierung: Name (bzw. Zugnummer/Anzeigename), dann ID
+    const label = (r: any) =>
+      String(r.name ?? r.trainNumber ?? r.displayName ?? r.email ?? "");
+    data.sort(
+      (a, b) =>
+        label(a).localeCompare(label(b), "de", {
+          numeric: true,
+          sensitivity: "base",
+        }) || String(a.id).localeCompare(String(b.id)),
+    );
     return paginate(data, q);
   }
   async save(resource: string, d: any, actor: string, id?: string) {

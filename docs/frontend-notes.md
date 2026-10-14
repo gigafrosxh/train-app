@@ -154,7 +154,10 @@ Hinweise:
 - Einmal endete eine Sitzung mit `AUTH_SESSION_EXPIRED` mitten in Reloads. Ursache laut Backend: Neustarts, Rate-Limit auf csrf/refresh und fehlende Toleranz bei parallelem Refresh aus zwei Tabs. Im Backend behoben (20 s Reuse-Toleranz, Rate-Limit nur noch auf login/register/me/password).
 - Frontend-Fixes daraus: gemerkter Bahnhof wird je Modus getrennt gespeichert und bei 400/404 verworfen.
 
-## Backend-Befunde aus dem Frontend-Test (14.10.2026, ca. 13:45) – für Codex
+## Backend-Befunde aus dem Frontend-Test (14.10.2026, ca. 13:45)
+
+**Stand 14:35:** Punkte 1–4 von Claude im Backend erledigt (Codex war nicht erreichbar). Offen: `timeZone` an StationRef.
+
 
 1. **Doppelte Bahnhöfe:** Demo-Seed und OSM-Import legen dieselben Bahnhöfe zweimal an (z. B. „Wien Hauptbahnhof“ WIE mit Fahrten + OSM-Duplikat ohne Code und ohne Fahrten; ebenso Linz, Salzburg, St. Pölten). Vorschlag: Import ordnet bestehende Bahnhöfe per Name + Nähe (< 300 m) zu, statt neu anzulegen.
 2. **Testdaten in der Dev-DB:** Fahrt „TL 1 Teststadt → Testdorf“ ist in `/operations/trips` sichtbar.

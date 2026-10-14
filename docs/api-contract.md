@@ -221,7 +221,7 @@ Eine globale Verspätungsänderung betrifft noch nicht bediente Halte. Konkrete 
 
 ### Administrator-CRUD
 
-Für jede Ressource: GET Liste, GET `/:id`, POST (201), PATCH `/:id` (200) und DELETE `/:id` (204). PATCH verlangt version; DELETE verwendet `?version=N`. Referenzierte Daten liefern 409 `RESOURCE_IN_USE`, statt historische Daten zu entfernen.
+Für jede Ressource: GET Liste, GET `/:id`, POST (201), PATCH `/:id` (200) und DELETE `/:id` (204). PATCH verlangt version; DELETE verwendet `?version=N`. Referenzierte Daten liefern 409 `RESOURCE_IN_USE`, statt historische Daten zu entfernen. Veraltete `version` bei PATCH/DELETE liefert 409 `VERSION_CONFLICT` (Fahrten: `TRIP_VERSION_CONFLICT`). Admin-Listen sind nach Name (bzw. Zugnummer/Anzeigename), dann ID sortiert. Die Bahnhofssuche behandelt „Hbf“ und „Hauptbahnhof“ gleich.
 
 Erste Schreibformen (IDs und Versionsfelder entstehen serverseitig):
 
