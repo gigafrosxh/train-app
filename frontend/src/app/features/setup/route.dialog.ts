@@ -68,7 +68,7 @@ interface StopItem {
         }
       </ol>
       <div class="add">
-        <app-station-picker #picker [label]="'setup.addStop' | t" icon="add_location" (stationChange)="add($event)" />
+        <app-station-picker #picker [label]="'setup.addStop' | t" icon="add_location" [suggest]="false" (stationChange)="add($event)" />
       </div>
       @if (error()) {
         <p class="error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</p>

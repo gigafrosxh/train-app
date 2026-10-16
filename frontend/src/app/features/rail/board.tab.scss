@@ -152,3 +152,22 @@ li + li .board-row {
     width: calc(50% - 5px);
   }
 }
+
+.fav {
+  margin-left: auto;
+  color: var(--c-muted);
+
+  &.on {
+    color: var(--c-warn);
+  }
+}
+
+.memo {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+
+  ::ng-deep .chips {
+    justify-content: center;
+  }
+}

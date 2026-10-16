@@ -27,6 +27,7 @@
     <mat-icon>departure_board</mat-icon>
     <strong>{{ 'rail.pickStation' | t }}</strong>
     <span>{{ 'rail.pickStationHint' | t }}</span>
+    <app-station-chips class="memo" (picked)="station.set($event)" />
   </div>
 } @else if (error()) {
   <div class="card empty">
@@ -47,6 +48,18 @@
       @if (!later()) {
         <span class="live"><span class="dot"></span>{{ 'rail.live' | t }}</span>
       }
+      <button
+        mat-icon-button
+        type="button"
+        class="fav"
+        [class.on]="memory.isFavorite(station()!.id)"
+        (click)="toggleFavorite()"
+        [attr.aria-pressed]="memory.isFavorite(station()!.id)"
+        [attr.aria-label]="(memory.isFavorite(station()!.id) ? 'rail.unfavorite' : 'rail.favorite') | t"
+        [matTooltip]="(memory.isFavorite(station()!.id) ? 'rail.unfavorite' : 'rail.favorite') | t"
+      >
+        <mat-icon>{{ memory.isFavorite(station()!.id) ? 'star' : 'star_outline' }}</mat-icon>
+      </button>
     </div>
     @if (!list.length) {
       <div class="empty">

@@ -3,6 +3,16 @@
 Alle Versionen folgen [Semantic Versioning](https://semver.org/lang/de/).
 Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Testen.
 
+## [Unveröffentlicht]
+
+### Neu
+- Lieblingsbahnhöfe: Stern auf der Abfahrtstafel, Favoriten und zuletzt gewählte Bahnhöfe direkt im Bahnhofsfeld
+- Home: „Deine Bahnhöfe“ öffnet die Abfahrtstafel mit einem Tipp
+- Hinweis bei fehlender Internetverbindung
+
+### Verbessert
+- Bahnhofssuche zeigt bei leerem Feld kein „Kein Bahnhof gefunden“ mehr
+
 ## [0.3.0] – 2026-10-14
 
 ### Neu

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -11,6 +11,7 @@ import { I18n } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { Role } from '../core/models/api.models';
 import { PreferencesService } from '../core/prefs/preferences.service';
+import { Notify } from '../core/ui/notify.service';
 import { Logo } from '../shared/logo';
 import { VersionFooter } from '../shared/version-footer';
 
@@ -45,6 +46,10 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   protected readonly demo = environment.useMocks;
+  private readonly notify = inject(Notify);
+
+  /** Browser meldet keine Netzverbindung → Hinweis oben. */
+  protected readonly offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false);
 
   private readonly url = toSignal(
     this.router.events.pipe(
@@ -74,6 +79,18 @@ export class Shell {
       this.i18n.lang();
       const label = this.i18n.t(this.current().label);
       this.title.setTitle(`${label} · Gleis`);
+    });
+
+    const goOffline = () => this.offline.set(true);
+    const goOnline = () => {
+      if (this.offline()) this.notify.info('shell.backOnline');
+      this.offline.set(false);
+    };
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
     });
   }
 

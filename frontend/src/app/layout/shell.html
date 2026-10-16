@@ -68,6 +68,12 @@
   </header>
 
   <main class="main" [class.full]="fullBleed()">
+    @if (offline()) {
+      <div class="offline" role="status">
+        <mat-icon>cloud_off</mat-icon>
+        <span>{{ 'shell.offline' | t }}</span>
+      </div>
+    }
     <router-outlet />
     <app-version-footer class="version" />
   </main>

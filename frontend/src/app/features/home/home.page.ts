@@ -11,9 +11,11 @@ import { Format } from '../../core/i18n/format.service';
 import { I18n } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Dashboard, TicketSummary, TripAlert } from '../../core/models/api.models';
+import { StationMemory } from '../../core/prefs/station-memory';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { Notify } from '../../core/ui/notify.service';
 import { LineBadge } from '../../shared/line-badge';
+import { StationChips } from '../../shared/station-chips';
 import { DelayView, PlatformView, TimeView } from '../../shared/times';
 
 @Component({
@@ -24,6 +26,7 @@ import { DelayView, PlatformView, TimeView } from '../../shared/times';
     MatIconModule,
     TranslatePipe,
     LineBadge,
+    StationChips,
     TimeView,
     DelayView,
     PlatformView,
@@ -38,6 +41,7 @@ export class HomePage implements OnInit {
   private readonly notify = inject(Notify);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(AuthService);
+  protected readonly stations = inject(StationMemory);
   protected readonly f = inject(Format);
   private readonly i18n = inject(I18n);
 

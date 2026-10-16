@@ -5,7 +5,8 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { RailApi } from '../../core/api/api';
@@ -14,10 +15,12 @@ import { Format, localDate, resolveLocal } from '../../core/i18n/format.service'
 import { I18n } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { BoardEntry, StationRef } from '../../core/models/api.models';
+import { StationMemory } from '../../core/prefs/station-memory';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { errorCode, Notify } from '../../core/ui/notify.service';
 import { readStorage, writeStorage } from '../../core/util/storage';
 import { LineBadge } from '../../shared/line-badge';
+import { StationChips } from '../../shared/station-chips';
 import { StationPicker } from '../../shared/station-picker';
 import { DelayView, PlatformView, TimeView } from '../../shared/times';
 
@@ -33,8 +36,10 @@ const LAST_STATION = environment.useMocks ? 'gleis.board.station.demo' : 'gleis.
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
+    MatTooltipModule,
     TranslatePipe,
     StationPicker,
+    StationChips,
     LineBadge,
     TimeView,
     DelayView,
@@ -49,9 +54,11 @@ export class BoardTab {
   private readonly notify = inject(Notify);
   private readonly realtime = inject(RealtimeService);
   private readonly i18n = inject(I18n);
+  private readonly route = inject(ActivatedRoute);
+  protected readonly memory = inject(StationMemory);
   protected readonly f = inject(Format);
 
-  protected readonly station = signal<StationRef | null>(this.lastStation());
+  protected readonly station = signal<StationRef | null>(this.linkedStation() ?? this.lastStation());
   protected readonly kind = signal<'dep' | 'arr'>('dep');
   protected readonly later = signal(false);
   protected readonly date = signal(localDate(new Date().toISOString(), this.f.zone()));
@@ -78,6 +85,21 @@ export class BoardTab {
       .pipe(takeUntilDestroyed(inject(DestroyRef)))
       .subscribe(() => !this.later() && this.load(1, true));
     this.realtime.resync$.pipe(takeUntilDestroyed()).subscribe(() => this.load(1, true));
+  }
+
+  /** Bahnhof aus dem Link (z. B. Favorit auf Home): ?station=<id>&name=<Name> */
+  private linkedStation(): StationRef | null {
+    const q = this.route.snapshot.queryParamMap;
+    const id = q.get('station');
+    return id ? { id, name: q.get('name') ?? '', code: null } : null;
+  }
+
+  protected toggleFavorite() {
+    const s = this.station();
+    if (!s) return;
+    const adding = !this.memory.isFavorite(s.id);
+    this.memory.toggleFavorite(s);
+    this.notify.info(adding ? 'rail.favoriteAdded' : 'rail.favoriteRemoved', { station: s.name });
   }
 
   private lastStation(): StationRef | null {
@@ -120,6 +142,7 @@ export class BoardTab {
         // Gemerkter Bahnhof existiert nicht (mehr), z. B. nach Wechsel Demo → echtes Backend
         const code = errorCode(err);
         if (code === 'STATION_NOT_FOUND' || code === 'VALIDATION_FAILED' || code === 'NOT_FOUND') {
+          this.memory.forget(s.id);
           this.station.set(null);
           this.entries.set(null);
           return;

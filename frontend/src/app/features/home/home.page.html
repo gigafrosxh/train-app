@@ -193,6 +193,18 @@
       </section>
     </div>
 
+    <!-- Gemerkte Bahnhöfe -->
+    <section class="card stations enter">
+      <div class="card-title">
+        <h2><mat-icon>star</mat-icon>{{ 'home.myStations' | t }}</h2>
+      </div>
+      @if (stations.favorites().length || stations.recent().length) {
+        <app-station-chips [asLinks]="true" />
+      } @else {
+        <p class="muted small hint">{{ 'home.myStationsHint' | t }}</p>
+      }
+    </section>
+
     <!-- Schnellzugriff -->
     <nav class="quick enter">
       <a class="quick-item clickable" routerLink="/rail" [queryParams]="{ tab: 'board' }">
