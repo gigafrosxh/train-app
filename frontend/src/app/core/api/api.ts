@@ -10,7 +10,9 @@ import {
   Connection,
   Country,
   CreateTicket,
+  AuditEntry,
   Dashboard,
+  Disruption,
   ImportJob,
   Line,
   MapTrain,
@@ -21,7 +23,11 @@ import {
   Route,
   Schedule,
   Settings,
+  NearbyStation,
+  ServerStatus,
   Station,
+  StationDetail,
+  StationRef,
   StopPatch,
   TicketSummary,
   Track,
@@ -63,6 +69,12 @@ export class AccountApi {
   markViewed(tripId: string) {
     return this.http.post<void>(`${API}/me/recent-trips`, { tripId, kind: 'VIEWED' });
   }
+  favoriteStations() {
+    return this.http.get<StationRef[]>(`${API}/me/favorite-stations`);
+  }
+  setFavoriteStations(stationIds: string[]) {
+    return this.http.put<StationRef[]>(`${API}/me/favorite-stations`, { stationIds });
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -103,7 +115,18 @@ export class RailApi {
     return this.http.get<Page<Station>>(`${API}/stations`, { params: toParams(query) });
   }
   station(id: string) {
-    return this.http.get<Station>(`${API}/stations/${id}`);
+    return this.http.get<StationDetail>(`${API}/stations/${id}`);
+  }
+  nearby(lng: number, lat: number, pageSize = 5) {
+    return this.http.get<Page<NearbyStation>>(`${API}/stations/nearby`, {
+      params: toParams({ lng, lat, pageSize }),
+    });
+  }
+  disruptions(query?: Query) {
+    return this.http.get<Page<Disruption>>(`${API}/disruptions`, { params: toParams(query) });
+  }
+  status() {
+    return this.http.get<ServerStatus>(`${API}/health/status`);
   }
   departures(stationId: string, query?: Query) {
     return this.http.get<Page<BoardEntry>>(`${API}/stations/${stationId}/departures`, {
@@ -178,7 +201,8 @@ export type AdminResource =
   | 'schedules'
   | 'trips'
   | 'users'
-  | 'worker-assignments';
+  | 'worker-assignments'
+  | 'disruptions';
 
 export interface AdminTypes {
   companies: Company;
@@ -191,11 +215,16 @@ export interface AdminTypes {
   trips: TripDetail;
   users: AdminUser;
   'worker-assignments': WorkerAssignment;
+  disruptions: Disruption;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AdminApi {
   private readonly http = inject(HttpClient);
+
+  audit(query?: Query) {
+    return this.http.get<Page<AuditEntry>>(`${API}/admin/audit`, { params: toParams(query) });
+  }
 
   list<R extends AdminResource>(resource: R, query?: Query): Observable<Page<AdminTypes[R]>> {
     return this.http.get<Page<AdminTypes[R]>>(`${API}/admin/${resource}`, {

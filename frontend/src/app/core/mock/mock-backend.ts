@@ -142,6 +142,8 @@ const routes = [
     mockDb().markViewed(me(userId).id, String(body['tripId']));
     return null;
   }),
+  R('GET', '/me/favorite-stations', ({ userId }) => mockDb().favorites(me(userId).id)),
+  R('PUT', '/me/favorite-stations', ({ userId, body }) => mockDb().setFavorites(me(userId).id, body['stationIds'])),
   R('GET', '/me/tickets', ({ userId, q }) => {
     let items = mockDb().tickets(me(userId).id);
     const status = q.get('status');
@@ -161,22 +163,19 @@ const routes = [
   R('PATCH', '/admin/settings', ({ userId, body }) => (requireRole(userId, 'ADMIN'), mockDb().setActiveCountry(String(body['activeCountry'])))),
 
   // ---------------- Rail Service
-  R('GET', '/stations', ({ userId, q }) => {
+  R('GET', '/stations', ({ userId, q }) => (me(userId), page(mockDb().searchStations(q.get('q') ?? '', q.get('country')), q))),
+  // vor /stations/:id
+  R('GET', '/stations/nearby', ({ userId, q }) => {
     me(userId);
-    const needle = (q.get('q') ?? '').toLowerCase().trim();
-    const country = q.get('country');
-    const items = (mockDb().adminList('stations', {}) as { name: string; code: string | null; country: string }[])
-      .filter((s) => !country || s.country === country)
-      .filter((s) => !needle || s.name.toLowerCase().includes(needle) || (s.code ?? '').toLowerCase() === needle)
-      .sort((a, b) => {
-        // Treffer am Wortanfang zuerst
-        const sa = a.name.toLowerCase().startsWith(needle) ? 0 : 1;
-        const sb = b.name.toLowerCase().startsWith(needle) ? 0 : 1;
-        return sa - sb || a.name.localeCompare(b.name);
-      });
-    return page(items, q);
+    const lng = Number(q.get('lng'));
+    const lat = Number(q.get('lat'));
+    if (!Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > 90)
+      throw new MockError(400, 'VALIDATION_FAILED', 'Invalid position');
+    const size = Math.min(20, Math.max(1, Number(q.get('pageSize') ?? 5)));
+    const items = mockDb().nearby(lng, lat, size, q.get('country') ?? mockDb().settings().activeCountry);
+    return { items, total: items.length, page: 1, pageSize: size };
   }),
-  R('GET', '/stations/:id', ({ userId, m }) => (me(userId), mockDb().adminGet('stations', m[1]))),
+  R('GET', '/stations/:id', ({ userId, m }) => (me(userId), mockDb().stationDetail(m[1]))),
   R('GET', '/stations/:id/departures', ({ userId, m, q }) =>
     (me(userId), page(mockDb().boardFor(m[1], 'dep', q.get('from') ?? undefined, q.get('to') ?? undefined), q))),
   R('GET', '/stations/:id/arrivals', ({ userId, m, q }) =>
@@ -197,6 +196,12 @@ const routes = [
   R('GET', '/trips/:id', ({ userId, m }) => (me(userId), mockDb().trip(decodeURIComponent(m[1])))),
   R('GET', '/trips/:id/position', ({ userId, m }) => (me(userId), mockDb().tripPosition(decodeURIComponent(m[1])))),
   R('GET', '/trips/:id/shape', ({ userId, m }) => (me(userId), mockDb().tripShape(decodeURIComponent(m[1])))),
+  R('GET', '/disruptions', ({ userId, q }) =>
+    (me(userId), page(mockDb().disruptions({
+      country: q.get('country') ?? mockDb().settings().activeCountry, stationId: q.get('stationId') ?? undefined,
+      lineId: q.get('lineId') ?? undefined, activeAt: q.get('activeAt') ?? undefined,
+    }), q))),
+  R('GET', '/health/status', () => ({ status: 'ok', realtime: 'SCHEDULE_ONLY', lastPositionAt: null }), true),
   R('GET', '/connections', ({ userId, q }) => {
     me(userId);
     const from = q.get('fromStationId');
@@ -257,6 +262,7 @@ const routes = [
   // ---------------- Admin
   R('POST', '/admin/imports', ({ userId, body }) => (requireRole(userId, 'ADMIN'), mockDb().startImport(String(body['country']), body['kind'] as 'RAILWAYS'))),
   R('GET', '/admin/imports/:id', ({ userId, m }) => (requireRole(userId, 'ADMIN'), mockDb().importJob(m[1]))),
+  R('GET', '/admin/audit', ({ userId, q }) => (requireRole(userId, 'ADMIN'), page([], q))),
   R('GET', '/admin/:res', ({ userId, m, q }) => {
     requireRole(userId, 'ADMIN');
     const query: Record<string, string> = {};
@@ -339,6 +345,9 @@ export class MockRealtimeTransport implements RealtimeTransport {
     });
     mockDb().scheduleChanged$.subscribe(({ scheduleId, affected }) => {
       if (this.connected) this.push('schedule.updated', scheduleId, Date.now(), { scheduleId, country: 'AT', affectedTripIds: affected, requiresRefetch: true });
+    });
+    mockDb().disruptionChanged$.subscribe((id) => {
+      if (this.connected) this.push('disruption.updated', id, Date.now(), { id });
     });
   }
 

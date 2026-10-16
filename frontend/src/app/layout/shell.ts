@@ -12,6 +12,9 @@ import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { Role } from '../core/models/api.models';
 import { PreferencesService } from '../core/prefs/preferences.service';
 import { Notify } from '../core/ui/notify.service';
+import { RailApi } from '../core/api/api';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { startWith, interval as every } from 'rxjs';
 import { Logo } from '../shared/logo';
 import { VersionFooter } from '../shared/version-footer';
 
@@ -50,6 +53,8 @@ export class Shell {
 
   /** Browser meldet keine Netzverbindung → Hinweis oben. */
   protected readonly offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false);
+  /** Positionsgeber aktiv, aber seit Minuten keine Meldung → Karte/Tafel zeigen geschätzte Werte. */
+  protected readonly realtimeStale = signal(false);
 
   private readonly url = toSignal(
     this.router.events.pipe(
@@ -86,6 +91,17 @@ export class Shell {
       if (this.offline()) this.notify.info('shell.backOnline');
       this.offline.set(false);
     };
+    const rail = inject(RailApi);
+    every(120000)
+      .pipe(startWith(0), takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.offline()) return;
+        rail.status().subscribe({
+          next: (st) => this.realtimeStale.set(st.realtime === 'STALE'),
+          error: () => this.realtimeStale.set(false),
+        });
+      });
+
     window.addEventListener('offline', goOffline);
     window.addEventListener('online', goOnline);
     inject(DestroyRef).onDestroy(() => {

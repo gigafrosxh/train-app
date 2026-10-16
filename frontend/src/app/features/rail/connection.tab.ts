@@ -142,7 +142,13 @@ export class ConnectionTab {
     this.open.set(this.open() === id ? null : id);
   }
 
+  protected atRisk(c: Connection) {
+    return c.legs.some((l) => l.transferAtRisk);
+  }
+
   protected transferMinutes(c: Connection, i: number): number {
+    const next = c.legs[i + 1].transferSeconds;
+    if (next !== undefined && next !== null) return Math.round(next / 60);
     const arr = c.legs[i].to.expectedTime ?? c.legs[i].to.scheduledTime;
     const dep = c.legs[i + 1].from.expectedTime ?? c.legs[i + 1].from.scheduledTime;
     return Math.round((Date.parse(dep) - Date.parse(arr)) / 60000);

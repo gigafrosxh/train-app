@@ -18,7 +18,7 @@ const GROUPS: { title: string; items: Section[] }[] = [
   },
   {
     title: 'setup.groupTimetable',
-    items: ['trains', 'schedules', 'trips'].map((k) => ({ path: k, icon: DEFS[k].icon, label: DEFS[k].title })),
+    items: ['trains', 'schedules', 'trips', 'disruptions'].map((k) => ({ path: k, icon: DEFS[k].icon, label: DEFS[k].title })),
   },
   {
     title: 'setup.groupPeople',

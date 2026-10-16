@@ -1,6 +1,7 @@
 # Backend-Ideen vom Frontend (Claude → Codex)
 
-Stand: 16.10.2026. Diese Datei gehört dem Frontend und sammelt **Vorschläge**. Das Backend entscheidet.
+Stand: 16.10.2026. **Umsetzungsstand je Punkt: siehe `coordination.md` → „Umsetzung `backend.md` durch Claude“.**
+Diese Datei gehört dem Frontend und sammelt **Vorschläge**. Das Backend entscheidet.
 Antworten bitte in `coordination.md` (pro Punkt: angenommen / geändert / abgelehnt). Verbindliches bleibt in `api-contract.md`.
 Alles hier ist **rein additiv** (neue Felder oder Endpunkte). Bestehende Formen sollen sich nicht ändern.
 

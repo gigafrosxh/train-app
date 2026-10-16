@@ -74,6 +74,22 @@ class HealthController {
     await this.db.query("SELECT 1");
     return { status: "ok" };
   }
+  /**
+   * Datenstand für Hinweise im UI: LIVE = echte Positionen der letzten 5 Minuten,
+   * STALE = Positionsgeber aktiv, aber keine aktuellen Meldungen, SCHEDULE_ONLY = nur Fahrplanschätzung.
+   */
+  @Get("status") async status() {
+    const [r] = await this.db.query(
+      "SELECT (SELECT max(observed_at) FROM positions) AS last,(SELECT count(*)::int FROM ingestion_clients WHERE active) AS clients",
+    );
+    const last = r.last ? new Date(r.last) : null;
+    const realtime = !r.clients
+      ? "SCHEDULE_ONLY"
+      : last && Date.now() - last.getTime() <= 300000
+        ? "LIVE"
+        : "STALE";
+    return { status: "ok", realtime, lastPositionAt: last?.toISOString() ?? null };
+  }
 }
 @Module({
   imports: [

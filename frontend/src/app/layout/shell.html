@@ -73,6 +73,11 @@
         <mat-icon>cloud_off</mat-icon>
         <span>{{ 'shell.offline' | t }}</span>
       </div>
+    } @else if (realtimeStale()) {
+      <div class="offline" role="status">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ 'shell.realtimeStale' | t }}</span>
+      </div>
     }
     <router-outlet />
     <app-version-footer class="version" />

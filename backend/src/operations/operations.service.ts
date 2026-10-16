@@ -23,7 +23,9 @@ export class OperationsService {
     if (!rows.length)
       fail(403, "TRAIN_NOT_ASSIGNED", "This train is not assigned to you.");
   }
-  async update(id: string, d: any, user: any, stopId?: string) {
+  async update(id: string, input: any, user: any, stopId?: string) {
+    // „propagate“ steuert nur die Weitergabe, ist selbst keine Feldänderung
+    const { propagate = false, ...d } = input;
     const result = await this.db.transaction(async (m) => {
       const [t] = await m.query("SELECT * FROM trips WHERE id=$1 FOR UPDATE", [
         id,
@@ -88,13 +90,29 @@ export class OperationsService {
             );
           }
         vals.push(stopId);
-        await m.query(
+        const [[changed]] = await m.query(
           "UPDATE trip_stops SET " +
             sets.concat("version=version+1").join(",") +
             " WHERE id=$" +
-            vals.length,
+            vals.length +
+            " RETURNING sequence,scheduled_arrival,scheduled_departure,expected_arrival,expected_departure",
           vals,
         );
+        if (propagate) {
+          // Verspätung dieses Halts auf alle folgenden übertragen (ohne gemeldete Ist-Zeiten und
+          // ohne von Hand gesetzte Zeiten). Abfahrt zählt vor Ankunft.
+          const delay = Math.round(
+            changed.expected_departure && changed.scheduled_departure
+              ? (ms(changed.expected_departure) - ms(changed.scheduled_departure)) / 1000
+              : changed.expected_arrival && changed.scheduled_arrival
+                ? (ms(changed.expected_arrival) - ms(changed.scheduled_arrival)) / 1000
+                : 0,
+          );
+          await m.query(
+            `UPDATE trip_stops SET expected_arrival=CASE WHEN scheduled_arrival IS NOT NULL AND actual_arrival IS NULL AND NOT arrival_override THEN scheduled_arrival+($3 * interval '1 second') ELSE expected_arrival END,expected_departure=CASE WHEN scheduled_departure IS NOT NULL AND actual_departure IS NULL AND NOT departure_override THEN scheduled_departure+($3 * interval '1 second') ELSE expected_departure END,version=version+1 WHERE trip_id=$1 AND sequence>$2 AND NOT cancelled`,
+            [id, changed.sequence, delay],
+          );
+        }
       } else {
         if (t.version !== d.version)
           fail(
@@ -138,7 +156,7 @@ export class OperationsService {
         user.id,
         stopId ? "stop.update" : "trip.update",
         stopId ?? id,
-        d,
+        stopId ? { ...d, propagate } : d,
       );
       return updated;
     });

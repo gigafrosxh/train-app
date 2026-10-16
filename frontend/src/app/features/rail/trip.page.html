@@ -52,6 +52,10 @@
         </a>
         @if (t.status !== 'RUNNING') {
           <span class="muted small">{{ 'trip.mapOnlyRunning' | t }}</span>
+        } @else if (t.lastObservedAt) {
+          <span class="muted small">{{ 'trip.lastSeen' | t: { time: f.relative(t.lastObservedAt) } }}</span>
+        } @else {
+          <span class="muted small">{{ 'trip.estimatedOnly' | t }}</span>
         }
       </div>
     </header>

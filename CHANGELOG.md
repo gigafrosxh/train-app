@@ -6,11 +6,19 @@ Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Teste
 ## [Unveröffentlicht]
 
 ### Neu
+- Lieblingsbahnhöfe werden am Konto gespeichert und sind auf allen Geräten da
+- Störungen und Baustellen: Admin legt sie im Setup an, Fahrgäste sehen sie auf Home und an der Abfahrtstafel (live)
+- Abfahrtstafel zeigt „über …“ die wichtigsten Halte; „Bahnhöfe in der Nähe“ per Standort
+- Verbindungen warnen bei knappem Umstieg mit verspätetem Zubringer
+- Plan: neue Zeit an einem Halt auf Wunsch für alle folgenden Halte übernehmen
+- Hinweis, wenn Echtzeitdaten verzögert sind; Fahrt zeigt, wann die Position zuletzt gemeldet wurde
+- Backend: Änderungsprotokoll (`/admin/audit`), Status (`/health/status`), Zeitzone an jedem Halt
 - Lieblingsbahnhöfe: Stern auf der Abfahrtstafel, Favoriten und zuletzt gewählte Bahnhöfe direkt im Bahnhofsfeld
 - Home: „Deine Bahnhöfe“ öffnet die Abfahrtstafel mit einem Tipp
 - Hinweis bei fehlender Internetverbindung
 
 ### Verbessert
+- Bahnhofssuche verzeiht Tippfehler, Umlaute und Abkürzungen („Wien Westbf“, „Muerzzuschlag“, „St. Pölten“)
 - Bahnhofssuche zeigt bei leerem Feld kein „Kein Bahnhof gefunden“ mehr
 - Abhängigkeiten aktualisiert: Angular 22.2.3, MapLibre GL 6 (behebt kritische XSS-Lücke), socket.io-client 4.8.4, vitest 5.0.5
 

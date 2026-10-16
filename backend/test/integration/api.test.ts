@@ -317,3 +317,119 @@ test("socket validates login and delivers worker change", async () => {
     socket.disconnect();
   }
 });
+test("station search tolerates abbreviations, umlauts and typos", async () => {
+  const names = async (q: string) =>
+    (await get(user, "/stations?q=" + encodeURIComponent(q)).expect(200)).body.items.map(
+      (s: any) => s.name,
+    );
+  assert.equal((await names("Linz Hbf"))[0], "Linz Hauptbahnhof");
+  assert.equal((await names("salzbrug"))[0], "Salzburg Hauptbahnhof");
+  assert.equal((await names("Sal"))[0], "Salzburg Hauptbahnhof");
+  const all = await get(user, "/stations").expect(200);
+  assert.ok(all.body.items.every((s: any) => s.timeZone && Array.isArray(s.aliases)));
+});
+test("favorite stations are stored per account in order", async () => {
+  await get(user, "/me/favorite-stations").expect(200, []);
+  const ids = [seedId("szg"), seedId("lnz")];
+  const saved = await change(user, "put", "/me/favorite-stations", {
+    stationIds: ids,
+  }).expect(200);
+  assert.deepEqual(saved.body.map((s: any) => s.id), ids);
+  assert.ok(saved.body[0].timeZone);
+  await change(user, "put", "/me/favorite-stations", {
+    stationIds: [ids[0], ids[0]],
+  }).expect(400);
+  await change(user, "put", "/me/favorite-stations", {
+    stationIds: ["00000000-0000-4000-8000-000000000000"],
+  }).expect(400);
+  await get(worker, "/me/favorite-stations").expect(200, []);
+  const back = await get(user, "/me/favorite-stations").expect(200);
+  assert.deepEqual(back.body.map((s: any) => s.id), ids);
+});
+test("board entries carry via stops, platform change and time zones", async () => {
+  const r = await get(user, "/stations/" + seedId("vie") + "/departures").expect(200);
+  const e = r.body.items[0];
+  assert.ok(e, "departure expected");
+  assert.equal(typeof e.platformChanged, "boolean");
+  assert.ok(Array.isArray(e.via) && e.via.length <= 3);
+  assert.ok(e.via.every((s: any) => s.id !== e.destination.id && s.id !== e.station.id));
+  assert.ok(e.station.timeZone);
+  const st = await get(user, "/stations/" + seedId("vie")).expect(200);
+  assert.ok(st.body.lines.length);
+});
+test("connections report transfer time per leg", async () => {
+  const r = await get(
+    user,
+    "/connections?fromStationId=" + seedId("vie") + "&toStationId=" + seedId("szg") +
+      "&departAfter=" + encodeURIComponent(new Date().toISOString()),
+  ).expect(200);
+  const legs = r.body.items[0].legs;
+  assert.equal(legs[0].transferSeconds, null);
+  assert.equal(legs[0].transferAtRisk, false);
+});
+test("nearby stations are sorted by distance", async () => {
+  const r = await get(user, "/stations/nearby?lng=14.29&lat=48.29&pageSize=2").expect(200);
+  assert.equal(r.body.items[0].id, seedId("lnz"));
+  assert.ok(r.body.items[0].distanceMeters < 500);
+  assert.ok(r.body.items[0].distanceMeters <= r.body.items[1].distanceMeters);
+  await get(user, "/stations/nearby?lng=200&lat=48").expect(400);
+});
+test("disruptions: admin CRUD with versions, users read active ones", async () => {
+  const body = {
+    country: "AT",
+    severity: "WARNING",
+    reasonCode: "CONSTRUCTION",
+    title: "Bauarbeiten Westbahn",
+    validFrom: new Date(Date.now() - 60000).toISOString(),
+    stationIds: [seedId("lnz")],
+  };
+  await change(user, "post", "/admin/disruptions", body).expect(403);
+  const created = await change(admin, "post", "/admin/disruptions", body).expect(201);
+  assert.equal(created.body.version, 1);
+  const atLinz = await get(user, "/disruptions?stationId=" + seedId("lnz")).expect(200);
+  assert.ok(atLinz.body.items.some((d: any) => d.id === created.body.id));
+  const atSalzburg = await get(user, "/disruptions?stationId=" + seedId("szg")).expect(200);
+  assert.ok(!atSalzburg.body.items.some((d: any) => d.id === created.body.id));
+  await change(admin, "patch", "/admin/disruptions/" + created.body.id, {
+    version: 1,
+    validUntil: body.validFrom,
+  }).expect(400);
+  const ended = await change(admin, "patch", "/admin/disruptions/" + created.body.id, {
+    version: 1,
+    validUntil: new Date(Date.now() - 1000).toISOString(),
+  }).expect(200);
+  const now = await get(user, "/disruptions").expect(200);
+  assert.ok(!now.body.items.some((d: any) => d.id === created.body.id));
+  await change(admin, "delete", "/admin/disruptions/" + created.body.id + "?version=1", {}).expect(409);
+  await change(admin, "delete", "/admin/disruptions/" + created.body.id + "?version=" + ended.body.version, {}).expect(204);
+  const log = await get(admin, "/admin/audit?entityId=" + created.body.id).expect(200);
+  assert.deepEqual(
+    log.body.items.map((e: any) => e.action),
+    ["disruptions.delete", "disruptions.update", "disruptions.create"],
+  );
+  await get(worker, "/admin/audit").expect(403);
+});
+test("stop delay propagates to later stops on request", async () => {
+  const list = await get(worker, "/operations/trips").expect(200);
+  const t = (await get(worker, "/trips/" + list.body.items.at(-1).id)).body;
+  const s = t.stops[0];
+  const expected = new Date(Date.parse(s.scheduledDeparture) + 420000).toISOString();
+  await change(worker, "patch", `/operations/trips/${t.id}/stops/${s.id}`, {
+    version: s.version,
+    propagate: true,
+  }).expect(400);
+  await change(worker, "patch", `/operations/trips/${t.id}/stops/${s.id}`, {
+    version: s.version,
+    expectedDeparture: expected,
+    propagate: true,
+  }).expect(200);
+  const after = (await get(worker, "/trips/" + t.id)).body;
+  for (const x of after.stops.slice(1)) {
+    if (x.scheduledArrival) assert.equal(x.arrivalDelaySeconds, 420);
+    if (x.scheduledDeparture) assert.equal(x.departureDelaySeconds, 420);
+  }
+});
+test("public status reports realtime source without login", async () => {
+  const r = await request(server).get("/api/v1/health/status").expect(200);
+  assert.ok(["LIVE", "STALE", "SCHEDULE_ONLY"].includes(r.body.realtime));
+});

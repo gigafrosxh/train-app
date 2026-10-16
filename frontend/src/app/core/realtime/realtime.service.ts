@@ -178,4 +178,13 @@ export class RealtimeService {
       }),
     );
   }
+
+  /** Störung angelegt, geändert oder gelöscht (betrifft alle Clients). */
+  disruptionUpdates(): Observable<SocketEvent<{ id: string }>> {
+    return new Observable((observer) =>
+      this.transport.events$.subscribe((e) => {
+        if (e.name === 'disruption.updated') observer.next(e.payload as never);
+      }),
+    );
+  }
 }

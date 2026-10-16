@@ -28,6 +28,26 @@
     <strong>{{ 'rail.pickStation' | t }}</strong>
     <span>{{ 'rail.pickStationHint' | t }}</span>
     <app-station-chips class="memo" (picked)="station.set($event)" />
+    @if (nearby(); as list) {
+      <ul class="list-reset nearby">
+        @for (n of list; track n.id) {
+          <li>
+            <button type="button" class="near clickable" (click)="station.set({ id: n.id, name: n.name, code: n.code, timeZone: n.timeZone })">
+              <mat-icon>near_me</mat-icon>
+              <span class="strong">{{ n.name }}</span>
+              <span class="muted small">{{ distance(n.distanceMeters) }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <button mat-stroked-button type="button" (click)="locate()" [disabled]="locating()">
+        <mat-icon>my_location</mat-icon>{{ (locating() ? 'rail.locating' : 'rail.nearby') | t }}
+      </button>
+    }
+    @if (locateError()) {
+      <span class="muted small">{{ locateError()! | t }}</span>
+    }
   </div>
 } @else if (error()) {
   <div class="card empty">
@@ -42,6 +62,7 @@
     }
   </div>
 } @else if (entries(); as list) {
+  <app-disruption-banner [stationId]="station()!.id" />
   <section class="card board">
     <div class="board-head">
       <h2>{{ (kind() === 'dep' ? 'rail.departuresFrom' : 'rail.arrivalsAt') | t: { station: station()!.name } }}</h2>
@@ -87,6 +108,9 @@
               </span>
               <span class="c-dest">
                 <strong>{{ kind() === 'dep' ? e.destination.name : e.origin.name }}</strong>
+                @if (e.via?.length) {
+                  <span class="via small">{{ 'rail.via' | t: { stations: viaText(e) } }}</span>
+                }
                 <span class="muted small">{{ e.lineName }}{{ e.companyName !== e.lineName ? ' · ' + e.companyName : '' }}</span>
                 @if (e.cancelled && e.reasonCode) {
                   <span class="reason small">{{ 'reasons.' + e.reasonCode | t }}</span>

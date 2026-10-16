@@ -73,3 +73,6 @@ export const dashboard = z.object({
   activeTickets: z.array(ticket),
   alerts: z.array(alert),
 });
+export const favoriteStations = z
+  .object({ stationIds: z.array(uuid).max(12) })
+  .strict();

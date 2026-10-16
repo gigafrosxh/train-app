@@ -15,6 +15,7 @@ import { StationMemory } from '../../core/prefs/station-memory';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { Notify } from '../../core/ui/notify.service';
 import { LineBadge } from '../../shared/line-badge';
+import { DisruptionBanner } from '../../shared/disruption-banner';
 import { StationChips } from '../../shared/station-chips';
 import { DelayView, PlatformView, TimeView } from '../../shared/times';
 
@@ -27,6 +28,7 @@ import { DelayView, PlatformView, TimeView } from '../../shared/times';
     TranslatePipe,
     LineBadge,
     StationChips,
+    DisruptionBanner,
     TimeView,
     DelayView,
     PlatformView,

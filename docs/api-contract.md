@@ -336,3 +336,21 @@ Damit die vereinbarte UI bei IMPORT_ALREADY_RUNNING den laufenden Job tatsächli
 - Rate-Limit: streng (40/min) nur für `/auth/login`, `/auth/register`, `/me/password`; CSRF-Bootstrap und Refresh zählen zum allgemeinen Kontingent.
 - `/countries` enthält zusätzlich DE, CH, CZ, HU, SI, SK, IT, LI (aktivierbar, Daten per Import).
 - Import (nur Entwicklung, `ENABLE_OVERPASS_IMPORT=true`): beliebiges Land per ISO-Code, Abfrage in Kacheln, ohne Abstell-/Rangiergleise (`service=*`).
+
+## Bedienbarkeit (Claude, Umsetzung von `backend.md`) – 2026-10-16
+
+Alles additiv, Migration `Usability1793000000000` (Extensions `unaccent`, `pg_trgm`).
+
+- **StationRef** hat jetzt immer `timeZone` (Halte, Tafel, Verbindungen, Fahrkarten, Favoriten). `Station` zusätzlich `aliases: string[]` (Admin kann sie setzen).
+- **Bahnhofssuche** `GET /stations?q=`: normalisiert über `station_key()` (Groß/klein, ü → ue, Akzente, ß, `Hbf`/`Bf`/`St.`, Satzzeichen). Reihenfolge: Namensanfang, Wortanfang/Kürzel, Teiltreffer/Zweitname, ab 4 Zeichen Tippfehler (`word_similarity ≥ 0.4`). Ohne `q` alphabetisch.
+- `GET /stations/:id` → `Station & { lines: { id, name, color }[] }`.
+- `GET /stations/nearby?lng&lat&pageSize=5(≤20)&country?` → Listenhülle von `Station & { distanceMeters }`, nächster zuerst. Der Standort wird nicht gespeichert.
+- **BoardEntry** (auch in `Connection.legs[].from/to`): `platformChanged: boolean`, `via: StationRef[]` (max. 3 wichtige Halte danach bzw. davor, nach Anzahl Linien, ohne Start/Ziel).
+- **Connection.legs[]**: `transferSeconds: number | null` (Echtzeit, null beim ersten Abschnitt), `transferAtRisk: boolean` (< 5 Min. oder < 10 Min. mit verspätetem Zubringer).
+- **TripSummary/TripDetail**: `lastObservedAt: string | null` (letzte echte Positionsmeldung).
+- **Favoriten**: `GET /me/favorite-stations` → `StationRef[]`; `PUT /me/favorite-stations { stationIds: uuid[] (≤ 12) }` → `StationRef[]`. Duplikate → 400 `VALIDATION_FAILED`, unbekannter Bahnhof → 400 `STATION_NOT_FOUND`. Gelöschte Bahnhöfe verschwinden per `ON DELETE CASCADE`.
+- **Störungen**: `GET /disruptions?country&stationId&lineId&activeAt&page&pageSize` (aktive, SEVERE zuerst; mit Bahnhof/Linie nur betroffene plus netzweite) → `Disruption = { id, country, severity: INFO|WARNING|SEVERE, reasonCode, title, text, validFrom, validUntil|null, stationIds, lineIds, createdAt, version }`. Admin-CRUD `/admin/disruptions` im üblichen Versionsmuster. Socket-Event `disruption.updated` an alle angemeldeten Clients (gelöscht: `data.deleted = true`).
+- **Weitergabe** `PATCH /operations/trips/:id/stops/:stopId` mit `propagate: true` (nur zusammen mit `expectedArrival`/`expectedDeparture`): Abweichung dieses Halts gilt für alle folgenden, nicht ausgefallenen Halte ohne Ist-Zeit und ohne Handwert. Antwort unverändert (`TripStop`).
+- **Änderungsprotokoll** `GET /admin/audit?entityId&actorId&action(Präfix)&from&to&page&pageSize` → `{ id, at, actorId, actorName, action, entityId, details }`, neueste zuerst.
+- **Status** `GET /health/status` (öffentlich) → `{ status, realtime: LIVE|STALE|SCHEDULE_ONLY, lastPositionAt }`. LIVE = echte Position < 5 Min., STALE = Positionsgeber aktiv, aber still, SCHEDULE_ONLY = keine aktiven Positionsgeber.
+- **Caching**: `Cache-Control: private` für `/countries`, `/lines` (5 Min.) und `/map/railways` (10 Min.); ETag/304 über Express.

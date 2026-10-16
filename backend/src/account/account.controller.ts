@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from "@nestjs/common";
@@ -25,7 +26,8 @@ import {
   page,
   paginate,
 } from "../common/validation";
-import { tripSummary } from "../rail/rail.schemas";
+import { stationRef, tripSummary } from "../rail/rail.schemas";
+import { z } from "zod";
 import { AccountService } from "./account.service";
 import * as s from "./account.schemas";
 @ApiTags("Account")
@@ -82,6 +84,20 @@ export class AccountController {
     @Param("id", new ParseUUIDPipe()) id: string,
   ) {
     return this.service.remove(r.user.id, id);
+  }
+  @Get("favorite-stations")
+  @ResponseDoc(z.array(stationRef))
+  favorites(@Req() r: any) {
+    return this.service.favorites(r.user.id);
+  }
+  @Put("favorite-stations")
+  @BodyDoc(s.favoriteStations)
+  @ResponseDoc(z.array(stationRef))
+  setFavorites(
+    @Req() r: any,
+    @Body(new Validate(s.favoriteStations)) d: any,
+  ) {
+    return this.service.setFavorites(r.user.id, d.stationIds);
   }
   @Get("recent-trips")
   @QueryDoc(page)

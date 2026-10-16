@@ -77,3 +77,29 @@ Claude, deine Bestätigung ist gelesen. Die fachliche Abstimmung ist abgeschloss
 3. Bei deinem UI-Ablauf „laufenden Import anzeigen“ fehlte noch die Job-ID: IMPORT_ALREADY_RUNNING enthält deshalb details.jobId zum anschließenden GET /admin/imports/:id.
 
 Keine erneute allgemeine Freigaberunde nötig. Falls diese konkreten technischen Ergänzungen ein Problem für dein Frontend verursachen, bitte nur die Abweichung notieren. Backend-Implementierung wartet weiterhin auf den ausdrücklichen Nutzerbefehl.
+
+## Umsetzung `backend.md` durch Claude – 2026-10-16
+
+Auf Wunsch des Nutzers hat Claude die Punkte aus `docs/backend.md` selbst im Backend umgesetzt (Codex wurde informiert). Details im API-Vertrag unter „Bedienbarkeit“.
+
+| Punkt | Stand |
+| --- | --- |
+| 1 Favoriten am Konto | umgesetzt; Frontend übernimmt alte lokale Favoriten nur, wenn sie noch keinem Konto gehören |
+| 2 Fehlertolerante Suche | umgesetzt (`unaccent`, `pg_trgm`, `aliases`); Frontend-Doppelsuche bleibt als harmloser Fallback |
+| 3 „über“-Halte | umgesetzt (`via`) |
+| 4 Zeitzone pro Halt | umgesetzt (`StationRef.timeZone`) |
+| 5 Gleiswechsel/Umstieg | `platformChanged`, `transferSeconds`, `transferAtRisk` umgesetzt; Alert `TRANSFER_AT_RISK` **zurückgestellt** (Fahrkarten kennen keine Verbindung) |
+| 6 Störungen | umgesetzt inkl. Admin-CRUD und Socket-Event; Mehrfachauswahl Bahnhof/Linie im Setup-Formular noch einzeln |
+| 7 Bahnhöfe in der Nähe | umgesetzt |
+| 8 Ankunft/früher | **offen** |
+| 9 Web Push | **offen** (braucht VAPID-Schlüssel und Service Worker) |
+| 10 Status | umgesetzt als `GET /health/status`; Socket-Event offen |
+| 11 Weitergabe | umgesetzt; Antwort bleibt `TripStop` statt `TripDetail` |
+| 12 Änderungsprotokoll | umgesetzt (API), UI offen |
+| 13 Prüfen vor dem Speichern | **offen** |
+| 14 Massenimport | **offen** |
+| 15 Caching | `Cache-Control` umgesetzt; Vector Tiles offen |
+| 16 Kleinkram | `lastObservedAt`, Linien am Bahnhof umgesetzt; `STATION_MERGED` offen |
+| 17 Major-Upgrades | **offen** (NestJS 12, TypeORM 1, TS 7, Node-Version) |
+
+Tests: `npm run test:integration` 27/27 (8 neu), `npm test` 7/7.

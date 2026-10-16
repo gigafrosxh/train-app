@@ -41,3 +41,21 @@ export const adminQuery = page
     status: z.enum(["ACTIVE", "LOCKED"]).optional(),
   })
   .strict();
+export const auditQuery = page
+  .extend({
+    entityId: uuid.optional(),
+    actorId: uuid.optional(),
+    action: z.string().max(60).optional(),
+    from: iso.optional(),
+    to: iso.optional(),
+  })
+  .strict();
+export const auditEntry = z.object({
+  id: uuid,
+  at: iso,
+  actorId: uuid.nullable(),
+  actorName: z.string().nullable(),
+  action: z.string(),
+  entityId: uuid.nullable(),
+  details: z.record(z.string(), z.unknown()),
+});

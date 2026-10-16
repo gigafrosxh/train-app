@@ -58,6 +58,9 @@ export class RealtimeGateway implements OnModuleDestroy {
     events.on("schedule.updated", (s: any) => {
       void this.broadcastSchedule(s);
     });
+    events.on("disruption.updated", (d: any) => {
+      void this.broadcastDisruption(d);
+    });
     events.on("map.position", (e: any) => {
       this.queue = this.queue.then(() => this.position(e)).catch(() => {});
     });
@@ -170,6 +173,12 @@ export class RealtimeGateway implements OnModuleDestroy {
     for (const s of this.clients)
       if (s.data.tripIds?.has(t.id) && (await this.check(s)))
         s.emit("trip.updated", this.envelope(t.id, t.version, t));
+  }
+  /** Störungen betreffen alle angemeldeten Clients; gelöschte kommen mit deleted: true. */
+  private async broadcastDisruption(d: any) {
+    for (const s of this.clients)
+      if (await this.check(s))
+        s.emit("disruption.updated", this.envelope(d.id, d.version ?? 0, d));
   }
   private async broadcastSchedule(t: any) {
     const route = await this.rail.route(t.routeId);

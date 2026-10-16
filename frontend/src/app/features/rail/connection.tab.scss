@@ -236,3 +236,32 @@
     grid-row: 1;
   }
 }
+
+.transfer.risky {
+  border-style: solid;
+  border-color: var(--c-warn);
+  background: var(--c-warn-soft);
+  color: var(--c-text);
+
+  mat-icon {
+    color: var(--c-warn);
+  }
+}
+
+.risk-text {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+
+  mat-icon {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+  }
+}

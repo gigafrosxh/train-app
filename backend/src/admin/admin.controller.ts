@@ -374,6 +374,51 @@ export class WorkerAssignmentsController {
   }
 }
 
+const DisruptionsControllerPatch = s.disruptionCreate
+  .partial()
+  .extend({ version })
+  .strict();
+@ApiTags("Admin: disruptions")
+@ApiBearerAuth()
+@Roles("ADMIN")
+@Controller("admin/disruptions")
+export class DisruptionsController {
+  constructor(@Inject(AdminService) private service: AdminService) {}
+  @Get() @QueryDoc(a.adminQuery) @ResponseDoc(listOf(s.disruption)) list(
+    @Query(new Validate(a.adminQuery)) q: any,
+  ) {
+    return this.service.list("disruptions", q);
+  }
+  @Get(":id") @ResponseDoc(s.disruption) get(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.get("disruptions", id);
+  }
+  @Post() @BodyDoc(s.disruptionCreate) @ResponseDoc(s.disruption, 201) create(
+    @Body(new Validate(s.disruptionCreate)) d: any,
+    @Req() r: any,
+  ) {
+    return this.service.save("disruptions", d, r.user.id);
+  }
+  @Patch(":id")
+  @BodyDoc(DisruptionsControllerPatch)
+  @ResponseDoc(s.disruption)
+  patch(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body(new Validate(DisruptionsControllerPatch)) d: any,
+    @Req() r: any,
+  ) {
+    return this.service.save("disruptions", d, r.user.id, id);
+  }
+  @Delete(":id") @HttpCode(204) @QueryDoc(idQuery) remove(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Query(new Validate(idQuery)) q: any,
+    @Req() r: any,
+  ) {
+    return this.service.remove("disruptions", id, q.version, r.user.id);
+  }
+}
+
 @ApiTags("Admin")
 @ApiBearerAuth()
 @Roles("ADMIN")
@@ -407,6 +452,12 @@ export class AdminController {
     @Req() r: any,
   ) {
     return this.service.remove("trips", id, q.version, r.user.id);
+  }
+  @Get("audit")
+  @QueryDoc(a.auditQuery)
+  @ResponseDoc(listOf(a.auditEntry))
+  audit(@Query(new Validate(a.auditQuery)) q: any) {
+    return this.service.audit(q);
   }
   @Get("users") @QueryDoc(a.adminQuery) @ResponseDoc(listOf(u.adminUser)) users(
     @Query(new Validate(a.adminQuery)) q: any,

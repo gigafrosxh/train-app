@@ -71,6 +71,12 @@ export interface ResourceDef {
 const TRAIN_TYPES = ['REGIONAL', 'INTERCITY', 'HIGH_SPEED', 'NIGHT', 'OTHER'].map((v) => ({ value: v, label: `trainTypes.${v}` }));
 const USAGES = ['main', 'branch', 'industrial', 'military', 'tourism', 'test', 'unknown'].map((v) => ({ value: v, label: `usage.${v}` }));
 const ROLES = ['USER', 'WORKER', 'ADMIN'].map((v) => ({ value: v, label: `roles.${v}` }));
+const SEVERITIES = ['INFO', 'WARNING', 'SEVERE'].map((v) => ({ value: v, label: `severity.${v}` }));
+const REASONS = DELAY_REASONS.map((v) => ({ value: v, label: `reasons.${v}` }));
+const DAY = 86400000;
+// Lokale Mitternacht (Störungen gelten ab Tagesbeginn vor Ort, nicht ab 00:00 UTC)
+const localDayStart = (v: unknown) => (v ? new Date(`${v}T00:00:00`).toISOString() : null);
+const localDayOf = (iso: unknown) => (iso ? new Date(String(iso)).toLocaleDateString('sv-SE') : '');
 
 const toIsoDate = (v: unknown) => (v ? new Date(String(v) + 'T00:00:00Z').toISOString() : null);
 const fromIsoDate = (v: unknown) => (v ? String(v).slice(0, 10) : '');
@@ -274,6 +280,53 @@ export const DEFS: Record<string, ResourceDef> = {
         ...dates,
       };
     },
+  },
+};
+
+// Störungen: Gültigkeit tageweise, Ende einschließlich (bis Mitternacht danach)
+DEFS['disruptions'] = {
+  resource: 'disruptions',
+  title: 'setup.disruptions',
+  intro: 'setup.disruptionsIntro',
+  icon: 'campaign',
+  columns: [
+    { key: 'title', label: 'setup.f.title' },
+    { key: 'severity', label: 'setup.f.severity', kind: 'translate', prefix: 'severity.' },
+    { key: 'validFrom', label: 'setup.f.validFrom', kind: 'date', hideMobile: true },
+    { key: 'validUntil', label: 'setup.f.validUntil', kind: 'date', value: (r) => (r['validUntil'] ? new Date(Date.parse(String(r['validUntil'])) - DAY).toISOString() : null) },
+  ],
+  fields: [
+    { key: 'title', label: 'setup.f.title', type: 'text', required: true, full: true },
+    { key: 'text', label: 'setup.f.text', type: 'text', full: true, hint: 'setup.disruptionTextHint' },
+    { key: 'severity', label: 'setup.f.severity', type: 'select', options: SEVERITIES, required: true, default: 'WARNING' },
+    { key: 'reasonCode', label: 'setup.f.reason', type: 'select', options: REASONS },
+    { key: 'stationId', label: 'setup.f.station', type: 'lookup', resource: 'stations', hint: 'setup.disruptionScopeHint' },
+    { key: 'lineId', label: 'setup.f.line', type: 'lookup', resource: 'lines' },
+    { key: 'validFrom', label: 'setup.f.validFrom', type: 'date', required: true, default: () => new Date().toLocaleDateString('sv-SE') },
+    { key: 'validUntil', label: 'setup.f.validUntil', type: 'date' },
+    { key: 'country', label: 'setup.f.country', type: 'text', required: true, default: 'AT', createOnly: true },
+  ],
+  fromRow: (r) => ({
+    ...r,
+    stationId: (r['stationIds'] as string[])?.[0] ?? null,
+    lineId: (r['lineIds'] as string[])?.[0] ?? null,
+    validFrom: localDayOf(r['validFrom']),
+    validUntil: r['validUntil'] ? localDayOf(new Date(Date.parse(String(r['validUntil'])) - DAY).toISOString()) : '',
+  }),
+  toBody: (v, row) => {
+    const until = localDayStart(v['validUntil']);
+    const body: Record<string, unknown> = {
+      title: v['title'],
+      text: v['text'] ?? '',
+      severity: v['severity'],
+      reasonCode: v['reasonCode'] || null,
+      stationIds: v['stationId'] ? [v['stationId']] : [],
+      lineIds: v['lineId'] ? [v['lineId']] : [],
+      validFrom: localDayStart(v['validFrom']),
+      validUntil: until ? new Date(Date.parse(until) + DAY).toISOString() : null,
+    };
+    if (!row) body['country'] = v['country'];
+    return body;
   },
 };
 

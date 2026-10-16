@@ -17,7 +17,7 @@ function load(p) {
 const de = load(join(root, 'src/app/core/i18n/de.ts')).de;
 const en = load(join(root, 'src/app/core/i18n/en.ts')).en;
 const has = (d, k) => k.split('.').reduce((n, p) => (n && typeof n === 'object' ? n[p] : undefined), d) !== undefined;
-const prefixes = ['common','nav','shell','roles','time','status','reasons','alerts','login','password','home','tickets','rail','trip','account','plan','dst','setup','trainTypes','usage','userStatus','scope','dataStatus','importStatus','importKind','weekdays','errors','fieldErrors','map'];
+const prefixes = ['common','nav','shell','roles','time','status','reasons','alerts','login','password','home','tickets','rail','trip','account','plan','dst','setup','trainTypes','usage','userStatus','scope','dataStatus','importStatus','importKind','weekdays','errors','fieldErrors','map','severity','disruptions'];
 const re = /'([a-zA-Z]+(?:\.[A-Za-z0-9_]+)+)'/g;
 const missing = new Set();
 const EVENTS = ['map.subscribe', 'map.unsubscribe', 'map.train.removed', 'trip.updated', 'trip.position.updated', 'trips.subscribe', 'trips.unsubscribe', 'schedule.updated'];

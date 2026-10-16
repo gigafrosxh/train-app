@@ -11,7 +11,18 @@ import { paginate } from "../common/validation";
 import { publicUser } from "../auth/auth.service";
 const columns: Record<string, string[]> = {
   companies: ["name", "code", "country"],
-  stations: ["name", "code", "country", "timeZone"],
+  stations: ["name", "code", "country", "timeZone", "aliases"],
+  disruptions: [
+    "country",
+    "severity",
+    "reasonCode",
+    "title",
+    "text",
+    "validFrom",
+    "validUntil",
+    "stationIds",
+    "lineIds",
+  ],
   trains: ["companyId", "trainNumber", "name", "type", "active"],
   lines: ["companyId", "name", "code", "color"],
   tracks: ["country", "name", "usage", "electrified"],
@@ -110,13 +121,13 @@ export class AdminService {
         (!q.role || r.role === q.role) &&
         (!q.status || r.status === q.status) &&
         (!q.q ||
-          [r.name, r.email, r.displayName, r.trainNumber, r.code].some((v) =>
+          [r.name, r.title, r.email, r.displayName, r.trainNumber, r.code].some((v) =>
             v?.toLowerCase().includes(q.q.toLowerCase()),
           )),
     );
     // Lesbare Sortierung: Name (bzw. Zugnummer/Anzeigename), dann ID
     const label = (r: any) =>
-      String(r.name ?? r.trainNumber ?? r.displayName ?? r.email ?? "");
+      String(r.name ?? r.title ?? r.trainNumber ?? r.displayName ?? r.email ?? "");
     data.sort(
       (a, b) =>
         label(a).localeCompare(label(b), "de", {
@@ -152,6 +163,12 @@ export class AdminService {
       }
       const input = { ...current, ...d };
       if (resource === "schedules") await this.schedules.validate(input, m);
+      if (
+        resource === "disruptions" &&
+        input.validUntil &&
+        input.validUntil <= input.validFrom
+      )
+        fail(400, "VALIDATION_FAILED", "The end must follow the start.");
       if (resource === "worker-assignments") {
         const [worker] = await m.query(
           "SELECT id FROM users WHERE id=$1 AND role='WORKER'",
@@ -275,6 +292,8 @@ export class AdminService {
       return saved;
     });
     if (resource === "schedules") this.events.emit("schedule.updated", result);
+    if (resource === "disruptions")
+      this.events.emit("disruption.updated", result);
     return result;
   }
   async remove(resource: string, id: string, version: number, actor: string) {
@@ -297,6 +316,8 @@ export class AdminService {
       await m.query(`DELETE FROM ${table(resource)} WHERE id=$1`, [id]);
       await audit(m, actor, resource + ".delete", id);
     });
+    if (resource === "disruptions")
+      this.events.emit("disruption.updated", { id, deleted: true });
   }
   async assignments(
     q: any,
@@ -370,5 +391,29 @@ export class AdminService {
       await audit(m, actor, "users.update", id);
     });
     return this.get("users", id);
+  }
+  /** Änderungsprotokoll, neueste zuerst. */
+  async audit(q: any) {
+    const where: string[] = [];
+    const args: any[] = [];
+    const add = (sql: string, v: any) => {
+      args.push(v);
+      where.push(sql.replace("?", "$" + args.length));
+    };
+    if (q.entityId) add("a.entity_id=?", q.entityId);
+    if (q.actorId) add("a.actor_id=?", q.actorId);
+    if (q.action) add("a.action LIKE ?", q.action.replace(/[%_]/g, "") + "%");
+    if (q.from) add("a.created_at>=?", q.from);
+    if (q.to) add("a.created_at<?", q.to);
+    const filter = where.length ? " WHERE " + where.join(" AND ") : "";
+    const [{ total }] = await this.db.query(
+      "SELECT count(*)::int AS total FROM audit_log a" + filter,
+      args,
+    );
+    const rows = await this.db.query(
+      `SELECT a.id,a.created_at AS at,a.actor_id,u.display_name AS actor_name,a.action,a.entity_id,a.details FROM audit_log a LEFT JOIN users u ON u.id=a.actor_id${filter} ORDER BY a.created_at DESC,a.id LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
+      [...args, q.pageSize, (q.page - 1) * q.pageSize],
+    );
+    return { items: rows.map(camel), total, page: q.page, pageSize: q.pageSize };
   }
 }

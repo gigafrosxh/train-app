@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -37,6 +38,8 @@ interface StopDraft {
   dep: string;
   platform: string;
   cancelled: boolean;
+  /** Neue Zeit auf alle folgenden Halte übertragen (Standard: ja) */
+  propagate: boolean;
 }
 
 @Component({
@@ -46,6 +49,7 @@ interface StopDraft {
     RouterLink,
     MatButtonModule,
     MatButtonToggleModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
@@ -178,6 +182,7 @@ export class PlanPage implements OnInit {
         dep: s.expectedDeparture ? localTime(s.expectedDeparture, zone) : '',
         platform: s.expectedPlatform ?? s.scheduledPlatform ?? '',
         cancelled: s.cancelled,
+        propagate: true,
       };
     }
     this.drafts.set(d);
@@ -270,6 +275,17 @@ export class PlanPage implements OnInit {
     );
   }
 
+  /** Zeit geändert und es gibt danach noch Halte → Weitergabe anbieten. */
+  protected timeChanged(s: TripStop, last: boolean): boolean {
+    const d = this.drafts()[s.id];
+    if (!d || last) return false;
+    const zone = this.f.zone();
+    return (
+      (!!d.arr && d.arr !== (s.expectedArrival ? localTime(s.expectedArrival, zone) : '')) ||
+      (!!d.dep && d.dep !== (s.expectedDeparture ? localTime(s.expectedDeparture, zone) : ''))
+    );
+  }
+
   private hasDrafts() {
     const t = this.trip();
     return !!t && (t.stops.some((s) => this.stopDirty(s)) || this.delayDirty());
@@ -282,6 +298,7 @@ export class PlanPage implements OnInit {
       dep: s.expectedDeparture ? localTime(s.expectedDeparture, zone) : '',
       platform: s.expectedPlatform ?? s.scheduledPlatform ?? '',
       cancelled: s.cancelled,
+      propagate: true,
     });
   }
 
@@ -318,13 +335,15 @@ export class PlanPage implements OnInit {
     }
     if (d.platform !== (s.expectedPlatform ?? s.scheduledPlatform ?? '')) body.expectedPlatform = d.platform.trim() || null;
     if (d.cancelled !== s.cancelled) body.cancelled = d.cancelled;
+    const isLast = t.stops[t.stops.length - 1].id === s.id;
+    if (d.propagate && !isLast && (body.expectedArrival || body.expectedDeparture)) body.propagate = true;
 
     this.busy.set(true);
     try {
       await firstValueFrom(this.ops.patchStop(t.id, s.id, body));
       // Haltänderung erhöht auch die Fahrtversion → komplett neu laden
       this.loadTrip(t.id);
-      this.notify.info('plan.stopSaved', { station: s.station.name });
+      this.notify.info(body.propagate ? 'plan.stopSavedPropagated' : 'plan.stopSaved', { station: s.station.name });
     } catch (err) {
       await this.handleError(err);
     } finally {

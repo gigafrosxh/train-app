@@ -215,6 +215,15 @@
                 </div>
                 @if (stopDirty(s)) {
                   <div class="row stop-actions">
+                    @if (timeChanged(s, last)) {
+                      <mat-checkbox
+                        class="propagate"
+                        [ngModel]="draft(s).propagate"
+                        (ngModelChange)="setDraft(s, { propagate: $event })"
+                      >
+                        {{ 'plan.propagate' | t }}
+                      </mat-checkbox>
+                    }
                     <button mat-flat-button (click)="saveStop(s)" [disabled]="busy()">{{ 'common.save' | t }}</button>
                     <button mat-button (click)="resetStop(s)">{{ 'common.discard' | t }}</button>
                   </div>

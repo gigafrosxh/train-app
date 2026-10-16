@@ -14,13 +14,29 @@ export const stationRef = z.object({
   id: uuid,
   name: z.string(),
   code: z.string().nullable(),
+  timeZone: z.string(),
 });
 export const station = stationRef.extend({
   country,
-  timeZone: z.string(),
   coordinates,
+  aliases: z.array(z.string()),
   version,
 });
+export const lineRef = z.object({
+  id: uuid,
+  name: z.string(),
+  color: z.string().nullable(),
+});
+export const stationDetail = station.extend({ lines: z.array(lineRef) });
+export const nearbyStation = station.extend({ distanceMeters: z.number() });
+export const nearbyQuery = z
+  .object({
+    lng: z.coerce.number().min(-180).max(180),
+    lat: z.coerce.number().min(-90).max(90),
+    pageSize: z.coerce.number().int().min(1).max(20).default(5),
+    country: country.optional(),
+  })
+  .strict();
 export const company = z.object({
   id: uuid,
   name: z.string(),
@@ -114,6 +130,7 @@ export const tripSummary = z.object({
   expectedArrival: iso.nullable(),
   delaySeconds: z.number(),
   status: tripStatus,
+  lastObservedAt: iso.nullable(),
   version,
 });
 export const tripDetail = tripSummary.extend({ stops: z.array(tripStop) });
@@ -133,6 +150,8 @@ export const boardEntry = z.object({
   delaySeconds: z.number().nullable(),
   scheduledPlatform: z.string().nullable(),
   expectedPlatform: z.string().nullable(),
+  platformChanged: z.boolean(),
+  via: z.array(stationRef),
   cancelled: z.boolean(),
   reasonCode: reason.nullable(),
 });
@@ -150,6 +169,8 @@ export const connection = z.object({
       trainNumber: z.string(),
       from: boardEntry,
       to: boardEntry,
+      transferSeconds: z.number().nullable(),
+      transferAtRisk: z.boolean(),
     }),
   ),
 });
@@ -191,6 +212,7 @@ export const stationCreate = z
     country,
     coordinates,
     timeZone: timezone,
+    aliases: z.array(text).max(10).optional(),
   })
   .strict();
 export const trainCreate = z
@@ -317,6 +339,44 @@ export const stopPatch = z
     cancelled: z.boolean().optional(),
     reasonCode: reason.nullable().optional(),
     reasonText: z.string().max(1000).nullable().optional(),
+    propagate: z.boolean().optional(),
   })
   .strict()
-  .refine((d) => Object.keys(d).length > 1, "At least one change is required");
+  .refine(
+    (d) => Object.keys(d).filter((k) => k !== "propagate").length > 1,
+    "At least one change is required",
+  )
+  .refine(
+    (d) =>
+      !d.propagate ||
+      d.expectedArrival !== undefined ||
+      d.expectedDeparture !== undefined,
+    "propagate needs a new expected time",
+  );
+export const severity = z.enum(["INFO", "WARNING", "SEVERE"]);
+export const disruptionCreate = z
+  .object({
+    country,
+    severity,
+    reasonCode: reason.nullable().default(null),
+    title: text,
+    text: z.string().max(4000).default(""),
+    validFrom: iso,
+    validUntil: iso.nullable().default(null),
+    stationIds: z.array(uuid).max(200).default([]),
+    lineIds: z.array(uuid).max(200).default([]),
+  })
+  .strict();
+export const disruption = disruptionCreate.extend({
+  id: uuid,
+  createdAt: iso,
+  version,
+});
+export const disruptionQuery = page
+  .extend({
+    country: country.optional(),
+    stationId: uuid.optional(),
+    lineId: uuid.optional(),
+    activeAt: iso.optional(),
+  })
+  .strict();

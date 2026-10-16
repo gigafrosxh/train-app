@@ -78,13 +78,66 @@ export interface StationRef {
   id: string;
   name: string;
   code: string | null;
+  /** Zeitzone des Halts. Fehlt bei lokal gemerkten Bahnhöfen aus älteren Versionen. */
+  timeZone?: string;
 }
 
 export interface Station extends StationRef {
   country: string;
   coordinates: LngLat;
   timeZone: string;
+  aliases?: string[];
   version: number;
+}
+
+export interface LineRef {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+export interface StationDetail extends Station {
+  lines: LineRef[];
+}
+
+export interface NearbyStation extends Station {
+  distanceMeters: number;
+}
+
+export type Severity = 'INFO' | 'WARNING' | 'SEVERE';
+
+export interface Disruption {
+  id: string;
+  country: string;
+  severity: Severity;
+  reasonCode: DelayReason | null;
+  title: string;
+  text: string;
+  validFrom: string;
+  validUntil: string | null;
+  stationIds: string[];
+  lineIds: string[];
+  createdAt: string;
+  version: number;
+}
+
+/** LIVE = echte Positionen, STALE = Positionsgeber verstummt, SCHEDULE_ONLY = nur Fahrplan. */
+export type RealtimeState = 'LIVE' | 'STALE' | 'SCHEDULE_ONLY';
+
+export interface ServerStatus {
+  status: 'ok';
+  realtime: RealtimeState;
+  lastPositionAt: string | null;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actorId: string | null;
+  actorName: string | null;
+  action: string;
+  entityId: string | null;
+  details: Record<string, unknown>;
 }
 
 export interface Company {
@@ -204,6 +257,8 @@ export interface TripSummary {
   expectedArrival: string | null;
   delaySeconds: number;
   status: TripStatus;
+  /** Letzte echte Positionsmeldung (null = nur Fahrplanschätzung). */
+  lastObservedAt?: string | null;
   version: number;
 }
 
@@ -248,6 +303,9 @@ export interface BoardEntry {
   delaySeconds: number | null;
   scheduledPlatform: string | null;
   expectedPlatform: string | null;
+  platformChanged?: boolean;
+  /** Wichtige Halte danach (Abfahrt) bzw. davor (Ankunft), max. 3. */
+  via?: StationRef[];
   cancelled: boolean;
 }
 
@@ -258,6 +316,9 @@ export interface ConnectionLeg {
   trainNumber: string;
   from: BoardEntry;
   to: BoardEntry;
+  /** Umstiegszeit zum vorherigen Abschnitt (null beim ersten). */
+  transferSeconds?: number | null;
+  transferAtRisk?: boolean;
 }
 
 export interface Connection {
@@ -400,6 +461,8 @@ export interface StopPatch {
   cancelled?: boolean;
   reasonCode?: DelayReason | null;
   reasonText?: string | null;
+  /** Neue erwartete Zeit auf alle folgenden Halte übertragen. */
+  propagate?: boolean;
 }
 
 export interface WorkerAssignment {

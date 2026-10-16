@@ -18,7 +18,7 @@ export class AccountService {
   }
   async tickets(userId: string) {
     const rows = await this.db.query(
-      `SELECT t.*,c.name AS company_name,CASE WHEN os.id IS NULL THEN NULL ELSE json_build_object('id',os.id,'name',os.name,'code',os.code) END AS origin,CASE WHEN ds.id IS NULL THEN NULL ELSE json_build_object('id',ds.id,'name',ds.name,'code',ds.code) END AS destination FROM tickets t LEFT JOIN companies c ON c.id=t.company_id LEFT JOIN stations os ON os.id=t.origin_station_id LEFT JOIN stations ds ON ds.id=t.destination_station_id WHERE t.user_id=$1 ORDER BY t.valid_from,t.id`,
+      `SELECT t.*,c.name AS company_name,CASE WHEN os.id IS NULL THEN NULL ELSE json_build_object('id',os.id,'name',os.name,'code',os.code,'timeZone',os.time_zone) END AS origin,CASE WHEN ds.id IS NULL THEN NULL ELSE json_build_object('id',ds.id,'name',ds.name,'code',ds.code,'timeZone',ds.time_zone) END AS destination FROM tickets t LEFT JOIN companies c ON c.id=t.company_id LEFT JOIN stations os ON os.id=t.origin_station_id LEFT JOIN stations ds ON ds.id=t.destination_station_id WHERE t.user_id=$1 ORDER BY t.valid_from,t.id`,
       [userId],
     );
     return rows.map((raw) => {
@@ -245,5 +245,39 @@ export class AccountService {
       }
       await m.query("DELETE FROM users WHERE id=$1", [id]);
     });
+  }
+  /** Lieblingsbahnhöfe in Anzeigereihenfolge. */
+  async favorites(userId: string) {
+    const rows = await this.db.query(
+      "SELECT s.id,s.name,s.code,s.time_zone FROM favorite_stations f JOIN stations s ON s.id=f.station_id WHERE f.user_id=$1 ORDER BY f.position,s.name",
+      [userId],
+    );
+    return rows.map(ref);
+  }
+  async setFavorites(userId: string, stationIds: string[]) {
+    if (new Set(stationIds).size !== stationIds.length)
+      fail(400, "VALIDATION_FAILED", "Each station may appear only once.");
+    await this.db.transaction(async (m) => {
+      const known = await m.query("SELECT id FROM stations WHERE id=ANY($1)", [
+        stationIds,
+      ]);
+      if (known.length !== stationIds.length)
+        fail(400, "STATION_NOT_FOUND", "Station not found.", {
+          fieldErrors: [
+            {
+              field: "stationIds",
+              code: "STATION_NOT_FOUND",
+              message: "Unknown station.",
+            },
+          ],
+        });
+      await m.query("DELETE FROM favorite_stations WHERE user_id=$1", [userId]);
+      for (let i = 0; i < stationIds.length; i++)
+        await m.query(
+          "INSERT INTO favorite_stations(user_id,station_id,position) VALUES($1,$2,$3)",
+          [userId, stationIds[i], i],
+        );
+    });
+    return this.favorites(userId);
   }
 }

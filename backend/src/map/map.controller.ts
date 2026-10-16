@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -17,6 +18,7 @@ import * as s from "./map.schemas";
 export class MapController {
   constructor(@Inject(MapService) private map: MapService) {}
   @Get("map/railways")
+  @Header("Cache-Control", "private, max-age=600")
   @QueryDoc(s.railwayQuery)
   @ResponseDoc(s.featureCollection)
   railways(@Query(new Validate(s.railwayQuery)) q: any) {

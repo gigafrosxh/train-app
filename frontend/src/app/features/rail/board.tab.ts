@@ -14,12 +14,13 @@ import { FORMAT_PIPES } from '../../core/i18n/format.pipes';
 import { Format, localDate, resolveLocal } from '../../core/i18n/format.service';
 import { I18n } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { BoardEntry, StationRef } from '../../core/models/api.models';
+import { BoardEntry, NearbyStation, StationRef } from '../../core/models/api.models';
 import { StationMemory } from '../../core/prefs/station-memory';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { errorCode, Notify } from '../../core/ui/notify.service';
 import { readStorage, writeStorage } from '../../core/util/storage';
 import { LineBadge } from '../../shared/line-badge';
+import { DisruptionBanner } from '../../shared/disruption-banner';
 import { StationChips } from '../../shared/station-chips';
 import { StationPicker } from '../../shared/station-picker';
 import { DelayView, PlatformView, TimeView } from '../../shared/times';
@@ -40,6 +41,7 @@ const LAST_STATION = environment.useMocks ? 'gleis.board.station.demo' : 'gleis.
     TranslatePipe,
     StationPicker,
     StationChips,
+    DisruptionBanner,
     LineBadge,
     TimeView,
     DelayView,
@@ -68,6 +70,9 @@ export class BoardTab {
   protected readonly page = signal(1);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly nearby = signal<NearbyStation[] | null>(null);
+  protected readonly locating = signal(false);
+  protected readonly locateError = signal<string | null>(null);
 
   constructor() {
     effect(() => {
@@ -153,6 +158,44 @@ export class BoardTab {
         }
       },
     });
+  }
+
+  /** Standort einmalig abfragen (nur nach Klick) und nächste Bahnhöfe zeigen. Wird nicht gespeichert. */
+  protected locate() {
+    if (!('geolocation' in navigator)) {
+      this.locateError.set('rail.locateUnsupported');
+      return;
+    }
+    this.locating.set(true);
+    this.locateError.set(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        this.api.nearby(pos.coords.longitude, pos.coords.latitude, 5).subscribe({
+          next: (p) => {
+            this.locating.set(false);
+            this.nearby.set(p.items);
+          },
+          error: (err) => {
+            this.locating.set(false);
+            this.notify.error(err);
+          },
+        }),
+      (err) => {
+        this.locating.set(false);
+        this.locateError.set(err.code === err.PERMISSION_DENIED ? 'rail.locateDenied' : 'rail.locateFailed');
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  }
+
+  protected distance(m: number) {
+    const km = new Intl.NumberFormat(this.i18n.locale(), { maximumFractionDigits: 1 }).format(m / 1000);
+    return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${km} km`;
+  }
+
+  /** „Linz, Wels, Attnang-P.“ – Namen ohne „Hauptbahnhof“-Zusatz, damit die Zeile kurz bleibt. */
+  protected viaText(e: BoardEntry) {
+    return (e.via ?? []).map((s) => s.name.replace(/\s+(Hauptbahnhof|Hbf)$/i, '')).join(', ');
   }
 
   protected more() {

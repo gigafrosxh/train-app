@@ -11,6 +11,7 @@ import {
   Country,
   Dashboard,
   DelayReason,
+  Disruption,
   ImportJob,
   Line,
   LngLat,
@@ -19,7 +20,9 @@ import {
   RailwayCollection,
   Route,
   Schedule,
+  NearbyStation,
   Station,
+  StationDetail,
   StationRef,
   TicketSummary,
   Track,
@@ -102,7 +105,43 @@ interface State {
   activeCountry: string;
   countries: Country[];
   imports: ImportJob[];
+  disruptions: Disruption[];
+  /** Lieblingsbahnhöfe je Benutzer (IDs in Anzeigereihenfolge) */
+  favorites: Record<string, string[]>;
   seq: number;
+}
+
+/**
+ * Gleiche Normalisierung wie station_key() im Backend: Umlaute (ü → ue), Akzente, ß, Abkürzungen
+ * (Hbf, Bf, St.) und Satzzeichen. „raw“ ohne Abkürzungen, damit „St“ beim Tippen „Stadlau“ findet.
+ */
+export function stationKey(t: string, expand = true): string {
+  let k = t
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss')
+    .toLowerCase();
+  if (expand) k = k.replace(/hbf\b/g, 'hauptbahnhof').replace(/bf\b/g, 'bahnhof').replace(/\bst\.?(\s|$)/g, 'sankt$1');
+  return k.replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Wie pg_trgm word_similarity (vereinfacht): Anteil der Eingabe-Trigramme im am besten passenden Wort. */
+function wordSimilarity(q: string, key: string): number {
+  const tri = (w: string) => {
+    const p = `  ${w} `;
+    const out = new Set<string>();
+    for (let i = 0; i < p.length - 2; i++) out.add(p.slice(i, i + 3));
+    return out;
+  };
+  const a = tri(q);
+  let best = 0;
+  for (const w of key.split(' ')) {
+    const b = tri(w);
+    const common = [...a].filter((x) => b.has(x)).length;
+    best = Math.max(best, common / a.size);
+  }
+  return best;
 }
 
 interface SkStop {
@@ -143,7 +182,7 @@ function hash(s: string): number {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const ms = (s: string | null | undefined) => (s ? Date.parse(s) : NaN);
-const ref = (s: Station): StationRef => ({ id: s.id, name: s.name, code: s.code });
+const ref = (s: Station): StationRef => ({ id: s.id, name: s.name, code: s.code, timeZone: s.timeZone });
 
 export class MockDb {
   private s: State;
@@ -164,12 +203,16 @@ export class MockDb {
       state = null;
     }
     this.s = state ?? this.seed();
+    // Neue und ältere gespeicherte Stände um Störungen/Favoriten ergänzen
+    if (!state?.disruptions) this.s.disruptions = this.seedDisruptions();
+    this.s.favorites ??= {};
     this.rebuildGraph();
     if (!state) this.save();
   }
 
   reset() {
     this.s = this.seed();
+    this.s.disruptions = this.seedDisruptions();
     this.skeletons.clear();
     this.rebuildGraph();
     this.save();
@@ -306,13 +349,35 @@ export class MockDb {
     const state: State = {
       stations, companies, trains, lines, routes, tracks, schedules, users,
       tickets: [], recent: [], assignments, overrides: {}, special: [],
-      activeCountry: 'AT', countries, imports: [], seq: 0,
+      activeCountry: 'AT', countries, imports: [], disruptions: [], favorites: {}, seq: 0,
     };
     this.s = state;
     this.skeletons.clear();
     this.rebuildGraph();
     state.tickets = this.seedTickets();
     return state;
+  }
+
+  private seedDisruptions(): Disruption[] {
+    const from = new Date(Date.now() - 3600000).toISOString();
+    const until = new Date(Date.now() + 7 * 86400000).toISOString();
+    const station = this.s.stations.find((x) => /Salzburg/.test(x.name));
+    return [
+      {
+        id: 'di-demo-1',
+        country: 'AT',
+        severity: 'WARNING',
+        reasonCode: 'CONSTRUCTION',
+        title: 'Bauarbeiten Salzburg Hbf',
+        text: 'Einzelne Züge fahren von anderen Bahnsteigen ab. Bitte Anzeigen beachten.',
+        validFrom: from,
+        validUntil: until,
+        stationIds: station ? [station.id] : [],
+        lineIds: [],
+        createdAt: from,
+        version: 1,
+      },
+    ];
   }
 
   private makeUser(id: string, email: string, name: string, role: MockUser['role'], now: string): MockUser {
@@ -640,9 +705,34 @@ export class MockDb {
     return this.trips({ ...q, from: iso(from), to: iso(to) });
   }
 
+  private importanceCache: Map<string, number> | null = null;
+  /** Anzahl Linien je Bahnhof (für die Auswahl der „über“-Halte). */
+  private importance(): Map<string, number> {
+    if (!this.importanceCache) {
+      const lines = new Map<string, Set<string>>();
+      for (const r of this.s.routes)
+        for (const st of r.stops) lines.set(st.station.id, (lines.get(st.station.id) ?? new Set()).add(r.lineId));
+      this.importanceCache = new Map([...lines].map(([k, v]) => [k, v.size]));
+    }
+    return this.importanceCache;
+  }
+
+  private via(stops: TripStop[]): StationRef[] {
+    const c = stops.filter((s) => !s.cancelled);
+    if (c.length <= 3) return c.map((s) => s.station);
+    const imp = this.importance();
+    return c
+      .map((s, i) => ({ s, i, n: imp.get(s.station.id) ?? 0 }))
+      .sort((a, b) => b.n - a.n || a.i - b.i)
+      .slice(0, 3)
+      .sort((a, b) => a.i - b.i)
+      .map((x) => x.s.station);
+  }
+
   private board(sk: Skeleton, detail: TripDetail, idx: number, kind: 'dep' | 'arr'): BoardEntry {
     const st = detail.stops[idx];
     const sched = kind === 'dep' ? st.scheduledDeparture : st.scheduledArrival;
+    const around = kind === 'dep' ? detail.stops.slice(idx + 1, -1) : detail.stops.slice(1, Math.max(idx, 1));
     return {
       tripId: detail.id,
       stopId: st.id,
@@ -660,6 +750,8 @@ export class MockDb {
       delaySeconds: kind === 'dep' ? st.departureDelaySeconds : st.arrivalDelaySeconds,
       scheduledPlatform: st.scheduledPlatform,
       expectedPlatform: st.expectedPlatform,
+      platformChanged: !!st.expectedPlatform && !!st.scheduledPlatform && st.expectedPlatform !== st.scheduledPlatform,
+      via: this.via(around),
       cancelled: st.cancelled,
     };
   }
@@ -712,7 +804,14 @@ export class MockDb {
       tripId: d.id, lineName: d.lineName, lineColor: d.lineColor, trainNumber: d.trainNumber,
       from: this.board(sk, d, i, 'dep'), to: this.board(sk, d, j, 'arr'),
     });
-    const build = (legs: ReturnType<typeof leg>[]): Connection => {
+    const build = (raw: ReturnType<typeof leg>[]): Connection => {
+      // Umstiegszeit nach Echtzeit; knapp + verspäteter Zubringer = gefährdet (wie Backend)
+      const legs = raw.map((l, i) => {
+        if (!i) return { ...l, transferSeconds: null, transferAtRisk: false };
+        const prev = raw[i - 1].to;
+        const t = Math.round((ms(l.from.expectedTime ?? l.from.scheduledTime) - ms(prev.expectedTime ?? prev.scheduledTime)) / 1000);
+        return { ...l, transferSeconds: t, transferAtRisk: t < 300 || (t < 600 && (prev.delaySeconds ?? 0) > 0) };
+      });
       const dep = legs[0].from.expectedTime ?? legs[0].from.scheduledTime;
       const last = legs[legs.length - 1].to;
       const arr = last.expectedTime ?? last.scheduledTime;
@@ -1114,6 +1213,20 @@ export class MockDb {
     const a = so.expectedArrival ?? null;
     const d = so.expectedDeparture ?? null;
     if (a && d && ms(d) < ms(a)) throw new MockError(400, 'VALIDATION_FAILED', 'Departure before arrival', [{ field: 'expectedDeparture', code: 'BEFORE_ARRIVAL', message: 'Departure before arrival' }]);
+    if (body['propagate']) {
+      if (!('expectedArrival' in body) && !('expectedDeparture' in body))
+        throw new MockError(400, 'VALIDATION_FAILED', 'propagate needs a new expected time');
+      // Verspätung dieses Halts auf alle folgenden übertragen
+      const delay = d && st.schDep ? (ms(d) - ms(st.schDep)) / 1000 : a && st.schArr ? (ms(a) - ms(st.schArr)) / 1000 : 0;
+      for (const next of sk.stops.filter((x) => x.sequence > st.sequence)) {
+        const o = ov.stops[next.id] ?? { version: 1 };
+        if (o.cancelled) continue;
+        if (next.schArr) o.expectedArrival = iso(ms(next.schArr) + delay * 1000);
+        if (next.schDep) o.expectedDeparture = iso(ms(next.schDep) + delay * 1000);
+        o.version += 1;
+        ov.stops[next.id] = o;
+      }
+    }
     so.version += 1;
     ov.stops[stopId] = so;
     ov.version += 1;
@@ -1187,6 +1300,7 @@ export class MockDb {
       schedules: [this.s.schedules, 'sc'],
       users: [this.s.users, 'us'],
       'worker-assignments': [this.s.assignments, 'wa'],
+      disruptions: [this.s.disruptions, 'di'],
     };
     const entry = map[resource];
     if (!entry) throw new MockError(404, 'NOT_FOUND', 'Unknown resource');
@@ -1250,6 +1364,28 @@ export class MockDb {
         const c: Company = { id: this.id('co'), name: String(body['name']), code: String(body['code']), country: String(body['country']), version: 1 };
         this.s.companies.push(c);
         return this.done(c);
+      }
+      case 'disruptions': {
+        this.required(body, ['country', 'severity', 'title', 'validFrom']);
+        if (body['validUntil'] && ms(String(body['validUntil'])) <= ms(String(body['validFrom'])))
+          throw new MockError(400, 'VALIDATION_FAILED', 'The end must follow the start', [{ field: 'validUntil', code: 'BEFORE_START', message: 'End before start' }]);
+        const x: Disruption = {
+          id: this.id('di'),
+          country: String(body['country']),
+          severity: body['severity'] as Disruption['severity'],
+          reasonCode: (body['reasonCode'] as DelayReason) ?? null,
+          title: String(body['title']),
+          text: String(body['text'] ?? ''),
+          validFrom: String(body['validFrom']),
+          validUntil: (body['validUntil'] as string) || null,
+          stationIds: (body['stationIds'] as string[]) ?? [],
+          lineIds: (body['lineIds'] as string[]) ?? [],
+          createdAt: now,
+          version: 1,
+        };
+        this.s.disruptions.push(x);
+        this.disruptionChanged$.next(x.id);
+        return this.done(x);
       }
       case 'stations': {
         this.required(body, ['name', 'country', 'coordinates', 'timeZone']);
@@ -1398,6 +1534,7 @@ export class MockDb {
     }
     Object.assign(item, changes);
     item.version++;
+    if (resource === 'disruptions') this.disruptionChanged$.next(id);
     if (resource === 'tracks') this.rebuildGraph();
     if (resource === 'schedules') {
       this.validateSchedule(item as unknown as Schedule);
@@ -1433,7 +1570,89 @@ export class MockDb {
     list.splice(idx, 1);
     if (resource === 'tracks') this.rebuildGraph();
     if (resource === 'schedules') this.invalidate();
+    if (resource === 'disruptions') this.disruptionChanged$.next(id);
     this.save();
+  }
+
+  // ------------------------------------------------- Bahnhöfe, Störungen
+
+  /** Suche wie im Backend: Namensanfang, Wortanfang, Teiltreffer/Kürzel/Zweitname, Tippfehler. */
+  searchStations(q: string, country: string | null): Station[] {
+    const list = this.s.stations.filter((x) => !country || x.country === country);
+    const text = q.trim();
+    if (!text) return list.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const key = stationKey(text);
+    const raw = stationKey(text, false);
+    const ranked = list
+      .map((st) => {
+        const k = stationKey(st.name);
+        const has = (p: string) => k.includes(p);
+        const rank =
+          k.startsWith(key) || k.startsWith(raw) ? 0
+          : has(' ' + key) || has(' ' + raw) || (st.code ?? '').toLowerCase() === text.toLowerCase() ? 1
+          : has(key) || has(raw) || (st.aliases ?? []).some((a) => stationKey(a).includes(key)) ? 2
+          : key.length >= 4 && wordSimilarity(key, k) >= 0.4 ? 3
+          : null;
+        return { st, rank, sim: wordSimilarity(key, k) };
+      })
+      .filter((x) => x.rank !== null) as { st: Station; rank: number; sim: number }[];
+    return ranked.sort((a, b) => a.rank - b.rank || b.sim - a.sim || a.st.name.localeCompare(b.st.name)).map((x) => x.st);
+  }
+
+  stationDetail(id: string): StationDetail {
+    const st = this.s.stations.find((x) => x.id === id);
+    if (!st) throw new MockError(404, 'STATION_NOT_FOUND', 'Station not found');
+    const lineIds = new Set(this.s.routes.filter((r) => r.stops.some((x) => x.station.id === id)).map((r) => r.lineId));
+    const lines = this.s.lines
+      .filter((l) => lineIds.has(l.id))
+      .map((l) => ({ id: l.id, name: l.name, color: l.color }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { ...st, lines };
+  }
+
+  nearby(lng: number, lat: number, size: number, country: string): NearbyStation[] {
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const dist = (c: LngLat) => {
+      const dLat = rad(c[1] - lat);
+      const dLng = rad(c[0] - lng);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat)) * Math.cos(rad(c[1])) * Math.sin(dLng / 2) ** 2;
+      return Math.round(2 * 6371000 * Math.asin(Math.sqrt(h)));
+    };
+    return this.s.stations
+      .filter((x) => x.country === country)
+      .map((x) => ({ ...x, distanceMeters: dist(x.coordinates) }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, size);
+  }
+
+  favorites(userId: string): StationRef[] {
+    return (this.s.favorites[userId] ?? [])
+      .map((id) => this.s.stations.find((x) => x.id === id))
+      .filter((x): x is Station => !!x)
+      .map((x) => ({ id: x.id, name: x.name, code: x.code, timeZone: x.timeZone }));
+  }
+
+  setFavorites(userId: string, ids: unknown): StationRef[] {
+    if (!Array.isArray(ids) || ids.length > 12) throw new MockError(400, 'VALIDATION_FAILED', 'At most 12 stations');
+    if (new Set(ids).size !== ids.length) throw new MockError(400, 'VALIDATION_FAILED', 'Each station only once');
+    if (ids.some((id) => !this.s.stations.some((x) => x.id === id)))
+      throw new MockError(400, 'STATION_NOT_FOUND', 'Station not found', [{ field: 'stationIds', code: 'STATION_NOT_FOUND', message: 'Unknown station' }]);
+    this.s.favorites[userId] = ids as string[];
+    this.save();
+    return this.favorites(userId);
+  }
+
+  readonly disruptionChanged$ = new Subject<string>();
+
+  disruptions(q: { country: string; stationId?: string; lineId?: string; activeAt?: string }): Disruption[] {
+    const at = q.activeAt ? ms(q.activeAt) : Date.now();
+    const order = { SEVERE: 0, WARNING: 1, INFO: 2 };
+    const general = (x: Disruption) => !x.stationIds.length && !x.lineIds.length;
+    return this.s.disruptions
+      .filter((x) => x.country === q.country && ms(x.validFrom) <= at && (!x.validUntil || ms(x.validUntil) > at))
+      .filter((x) => !q.stationId || x.stationIds.includes(q.stationId) || general(x))
+      .filter((x) => !q.lineId || x.lineIds.includes(q.lineId) || general(x))
+      .sort((a, b) => order[a.severity] - order[b.severity] || ms(b.validFrom) - ms(a.validFrom));
   }
 
   /** Für Socket-Events: aktuelle Fahrtdaten. */

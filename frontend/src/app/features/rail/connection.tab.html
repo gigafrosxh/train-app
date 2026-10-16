@@ -75,6 +75,9 @@
                 · {{ c.transfers === 0 ? ('rail.direct' | t) : ('rail.transfers' | t: { n: c.transfers }) }}
                 · {{ c.departure | day }}
               </span>
+              @if (atRisk(c)) {
+                <span class="pill warn risk"><mat-icon>warning</mat-icon>{{ 'rail.transferRisk' | t }}</span>
+              }
             </span>
             <span class="badges">
               @for (l of c.legs; track l.tripId; let last = $last) {
@@ -112,9 +115,14 @@
                   </div>
                 </li>
                 @if (!last) {
-                  <li class="transfer">
-                    <mat-icon>transfer_within_a_station</mat-icon>
-                    {{ 'rail.transferAt' | t: { min: transferMinutes(c, i), station: l.to.station.name } }}
+                  <li class="transfer" [class.risky]="c.legs[i + 1].transferAtRisk">
+                    <mat-icon>{{ c.legs[i + 1].transferAtRisk ? 'warning' : 'transfer_within_a_station' }}</mat-icon>
+                    <span>
+                      {{ 'rail.transferAt' | t: { min: transferMinutes(c, i), station: l.to.station.name } }}
+                      @if (c.legs[i + 1].transferAtRisk) {
+                        <strong class="risk-text">{{ 'rail.transferRiskHint' | t }}</strong>
+                      }
+                    </span>
                   </li>
                 }
               }

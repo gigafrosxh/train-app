@@ -9,6 +9,7 @@ import { AccountApi, RailApi } from '../../core/api/api';
 import { FORMAT_PIPES } from '../../core/i18n/format.pipes';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TripDetail, TripStop } from '../../core/models/api.models';
+import { Format } from '../../core/i18n/format.service';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { Notify } from '../../core/ui/notify.service';
 import { LineBadge } from '../../shared/line-badge';
@@ -37,6 +38,7 @@ export class TripPage {
   private readonly notify = inject(Notify);
   private readonly location = inject(Location);
   private readonly router = inject(Router);
+  protected readonly f = inject(Format);
 
   readonly id = input.required<string>();
   protected readonly trip = signal<TripDetail | null>(null);

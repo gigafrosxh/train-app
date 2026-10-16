@@ -5,10 +5,16 @@ import { DataSource, EntityManager } from "typeorm";
 import { Initial1791936000000 } from "./migrations/1791936000000-Initial";
 import { Countries1791990000000 } from "./migrations/1791990000000-Countries";
 import { MergeStations1792000000000 } from "./migrations/1792000000000-MergeStations";
+import { Usability1793000000000 } from "./migrations/1793000000000-Usability";
 export const source = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  migrations: [Initial1791936000000, Countries1791990000000, MergeStations1792000000000],
+  migrations: [
+    Initial1791936000000,
+    Countries1791990000000,
+    MergeStations1792000000000,
+    Usability1793000000000,
+  ],
   synchronize: false,
   extra: { max: 10 },
   logging: false,

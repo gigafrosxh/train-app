@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -33,7 +34,10 @@ export class RailController {
   settings() {
     return this.rail.settings();
   }
-  @Get("countries") @QueryDoc(page) async countries(
+  @Get("countries")
+  @Header("Cache-Control", "private, max-age=300")
+  @QueryDoc(page)
+  async countries(
     @Query(new Validate(page)) q: any,
   ) {
     const rows = await this.rail.db.query(
@@ -51,10 +55,17 @@ export class RailController {
   stations(@Query(new Validate(s.listQuery)) q: any) {
     return this.rail.stations(q);
   }
-  @Get("stations/:id") @ResponseDoc(s.station) station(
+  // Vor „stations/:id“, sonst greift die UUID-Prüfung
+  @Get("stations/nearby")
+  @QueryDoc(s.nearbyQuery)
+  @ResponseDoc(listOf(s.nearbyStation))
+  nearby(@Query(new Validate(s.nearbyQuery)) q: any) {
+    return this.rail.nearby(q);
+  }
+  @Get("stations/:id") @ResponseDoc(s.stationDetail) station(
     @Param("id", new ParseUUIDPipe()) id: string,
   ) {
-    return this.rail.station(id);
+    return this.rail.stationDetail(id);
   }
   @Get("stations/:id/departures")
   @QueryDoc(s.boardQuery)
@@ -74,7 +85,11 @@ export class RailController {
   ) {
     return this.rail.board(id, q, "Arrival");
   }
-  @Get("lines") @QueryDoc(s.listQuery) @ResponseDoc(listOf(s.line)) lines(
+  @Get("lines")
+  @Header("Cache-Control", "private, max-age=300")
+  @QueryDoc(s.listQuery)
+  @ResponseDoc(listOf(s.line))
+  lines(
     @Query(new Validate(s.listQuery)) q: any,
   ) {
     return this.rail.lines(q);
@@ -94,6 +109,12 @@ export class RailController {
     @Param("id", new ParseUUIDPipe()) id: string,
   ) {
     return this.rail.trip(id);
+  }
+  @Get("disruptions")
+  @QueryDoc(s.disruptionQuery)
+  @ResponseDoc(listOf(s.disruption))
+  disruptions(@Query(new Validate(s.disruptionQuery)) q: any) {
+    return this.rail.disruptions(q);
   }
   @Get("connections")
   @QueryDoc(s.connectionQuery)
