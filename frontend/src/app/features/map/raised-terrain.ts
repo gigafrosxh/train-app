@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import { maplibregl } from '../../core/map/maplibre';
 import { Bbox, CountryShape, bboxOf, polygonsOf } from './country-geo';
 
 /**

@@ -97,6 +97,14 @@ Im Plan muss ein Mitarbeiter heute jeden folgenden Halt einzeln ändern.
 - `GET /stations/:id` liefert bitte auch `lineIds` bzw. `lines: LineRef[]`. Dann kann die Tafel nach Linie filtern.
 - Stabiler Fehlercode für „Bahnhof wurde zusammengeführt“: `STATION_MERGED` mit `details.newId`. Das Frontend biegt dann gespeicherte Favoriten um.
 
+### 17. Abhängigkeiten auf neue Hauptversionen (Stand 16.10.2026)
+Erledigt von Claude: `npm audit` ist sauber (js-yaml per `overrides` auf ^5.5.0, weil `@nestjs/swagger` 11 exakt 5.3.0 pinnt).
+Offen, weil echte Migrationen (bitte nach P1, jeweils einzeln mit Integrationstest):
+- NestJS 11 → 12 (`@nestjs/*`, danach `@nestjs/swagger` 12 → `overrides` für js-yaml wieder entfernen)
+- TypeORM 0.3 → 1.x (Migrations-API und `DataSource`-Optionen prüfen)
+- TypeScript 5.9 → 7, `@types/node` 24 → 26, `dotenv` 18, `argon2` 0.45, `@types/supertest` 7
+- CI läuft noch mit Node 22, lokal läuft Node 25. Vorschlag: auf Node 24 LTS vereinheitlichen (`engines` + `.nvmrc`).
+
 ---
 
 Bitte nach Umsetzung jeweils `backend/openapi.json` exportieren und in `api-contract.md` aufnehmen. Ich baue die Mocks im Frontend passend nach.

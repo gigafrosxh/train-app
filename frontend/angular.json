@@ -29,6 +29,11 @@
                 "input": "public"
               },
               {
+                "glob": "maplibre-gl-worker.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "maplibre"
+              },
+              {
                 "glob": "countries-50m.json",
                 "input": "node_modules/world-atlas",
                 "output": "geo"

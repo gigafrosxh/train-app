@@ -12,6 +12,10 @@ Vor jeder Version gibt es mindestens eine Vorabversion (`vX.Y.Z-rc.N`) zum Teste
 
 ### Verbessert
 - Bahnhofssuche zeigt bei leerem Feld kein „Kein Bahnhof gefunden“ mehr
+- Abhängigkeiten aktualisiert: Angular 22.2.3, MapLibre GL 6 (behebt kritische XSS-Lücke), socket.io-client 4.8.4, vitest 5.0.5
+
+### Sicherheit
+- `npm audit` in Frontend und Backend ohne Befund (Backend: js-yaml ≥ 5.5 für `@nestjs/swagger`)
 
 ## [0.3.0] – 2026-10-14
 

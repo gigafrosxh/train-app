@@ -141,8 +141,10 @@ function stationLayer(id: string, p: MapPalette, filter: unknown, minzoom: numbe
 
 /** Farben eines bestehenden Stils austauschen (Hell/Dunkel). */
 export function applyPalette(map: MlMap, p: MapPalette) {
+  // MapLibre 6 typisiert Eigenschaft und Wert pro Layer-Typ; hier gemischt über alle Layer
+  type Paint = Parameters<MlMap['setPaintProperty']>;
   const set = (layer: string, prop: string, value: unknown) => {
-    if (map.getLayer(layer)) map.setPaintProperty(layer, prop, value);
+    if (map.getLayer(layer)) map.setPaintProperty(layer, prop as Paint[1], value as Paint[2]);
   };
   set('water', 'background-color', p.water);
   set('land', 'fill-color', p.land);
